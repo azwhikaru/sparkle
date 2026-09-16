@@ -33,7 +33,7 @@ interface MihomoConfig {
   port?: number
   proxies?: MihomoProxy[]
   'proxy-groups'?: MihomoProxyGroup[]
-  rules?: unknown[]
+  rules?: string[]
   hosts?: { [key: string]: string | string[] }
   'geodata-mode'?: boolean
   'geo-auto-update'?: boolean
@@ -49,6 +49,7 @@ interface MihomoConfig {
   sniffer: MihomoSnifferConfig
   profile: MihomoProfileConfig
   'rule-providers'?: Record<string, unknown>
+  'sub-rules'?: Record<string, string[]>
   'proxy-providers'?: Record<string, MihomoProxyProvider>
 }
 

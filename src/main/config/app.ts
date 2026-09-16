@@ -10,13 +10,29 @@ let appConfig: AppConfig
 let writePromise: Promise<void> = Promise.resolve()
 
 function applyBuildConfig(config: AppConfig): AppConfig {
-  if (!systemCoreOnlyBuild) return config
+  const migratedConfig = config.siderOrder?.includes('preproxy')
+    ? config
+    : {
+        ...config,
+        siderOrder: insertPreProxyCard(config.siderOrder)
+      }
+
+  if (!systemCoreOnlyBuild) return migratedConfig
 
   return {
-    ...config,
+    ...migratedConfig,
     core: 'system',
-    systemCorePath: config.systemCorePath || systemCoreDefaultPath
+    systemCorePath: migratedConfig.systemCorePath || systemCoreDefaultPath
   }
+}
+
+function insertPreProxyCard(order: string[] | undefined): string[] {
+  const nextOrder = order?.slice() ?? defaultConfig.siderOrder.slice()
+  if (nextOrder.includes('preproxy')) return nextOrder
+
+  const tunIndex = nextOrder.indexOf('tun')
+  nextOrder.splice(tunIndex < 0 ? 0 : tunIndex + 1, 0, 'preproxy')
+  return nextOrder
 }
 
 function isValidConfig(config: unknown): config is AppConfig {

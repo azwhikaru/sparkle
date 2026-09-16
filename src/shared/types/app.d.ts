@@ -27,6 +27,11 @@ interface ISysProxyConfig {
   guardNotify?: boolean
 }
 
+interface IPreProxyConfig {
+  enable: boolean
+  node: Record<string, unknown>
+}
+
 interface IHost {
   domain: string
   value: string | string[]
@@ -77,6 +82,7 @@ interface AppConfig {
   substoreCardStatus?: CardStatus
   sysproxyCardStatus?: CardStatus
   tunCardStatus?: CardStatus
+  preProxyCardStatus?: CardStatus
   githubToken?: string
   gistSyncEnabled?: boolean
   gistEncrypted?: boolean
@@ -111,6 +117,7 @@ interface AppConfig {
   autoCloseConnection: boolean
   closeMode: 'all' | 'group'
   sysProxy: ISysProxyConfig
+  preProxy?: IPreProxyConfig
   saveLogs?: boolean
   maxLogDays: number
   maxLogFileSizeMB?: number

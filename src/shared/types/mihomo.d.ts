@@ -31,9 +31,9 @@ interface MihomoConfig {
   'lan-disallowed-ips'?: string[]
   authentication: string[]
   port?: number
-  proxies?: []
-  'proxy-groups'?: []
-  rules?: []
+  proxies?: MihomoProxy[]
+  'proxy-groups'?: MihomoProxyGroup[]
+  rules?: unknown[]
   hosts?: { [key: string]: string | string[] }
   'geodata-mode'?: boolean
   'geo-auto-update'?: boolean
@@ -49,7 +49,24 @@ interface MihomoConfig {
   sniffer: MihomoSnifferConfig
   profile: MihomoProfileConfig
   'rule-providers'?: Record<string, unknown>
-  'proxy-providers'?: Record<string, unknown>
+  'proxy-providers'?: Record<string, MihomoProxyProvider>
+}
+
+interface MihomoProxy extends Record<string, unknown> {
+  name: string
+  type: string
+  'dialer-proxy'?: string
+}
+
+interface MihomoProxyProvider extends Record<string, unknown> {
+  proxy?: string
+  override?: Record<string, unknown>
+}
+
+interface MihomoProxyGroup extends Record<string, unknown> {
+  name: string
+  url?: string
+  use?: string[]
 }
 
 interface MihomoTunConfig {

@@ -7,6 +7,7 @@ import {
   Logs,
   Mihomo,
   Override,
+  PreProxy,
   Profiles,
   Proxies,
   Resources,
@@ -43,6 +44,10 @@ const routes = [
   {
     path: '/tun',
     element: startupRoute(<Tun />)
+  },
+  {
+    path: '/preproxy',
+    element: startupRoute(<PreProxy />)
   },
   {
     path: '/proxies',

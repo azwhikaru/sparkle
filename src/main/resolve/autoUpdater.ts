@@ -23,8 +23,8 @@ import { systemCoreOnlyBuild } from '../../shared/build-flags'
 let downloadCancelToken: CancelTokenSource | null = null
 const WINDOWS_INSTALLER_MIN_TEMP_SPACE_BYTES = 1024 * 1024 * 1024
 const UPDATE_MANIFEST_URLS: Record<AppUpdateChannel, string> = {
-  stable: 'https://github.com/xishang0128/sparkle/releases/latest/download/latest.yml',
-  rolling: 'https://github.com/xishang0128/sparkle/releases/download/rolling/latest.yml'
+  stable: 'https://github.com/azwhikaru/sparkle/releases/latest/download/latest.yml',
+  rolling: 'https://github.com/azwhikaru/sparkle/releases/download/rolling/latest.yml'
 }
 
 function getGitHubAuthHeaders(token?: string): Record<string, string> {

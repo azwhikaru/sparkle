@@ -133,9 +133,12 @@ interface AppConfig {
   userAgent?: string
   delayTestConcurrency?: number
   delayTestUseGroupApi?: boolean
+  delayTestMode?: DelayTestMode
   delayTestUrl?: string
   delayTestUrlScope?: 'group' | 'global'
   delayTestTimeout?: number
+  delayTestHappyMin?: number
+  delayTestHappyMax?: number
   encryptedPassword?: number[]
   rememberProxyGroupOpenState?: boolean
   controlDns?: boolean

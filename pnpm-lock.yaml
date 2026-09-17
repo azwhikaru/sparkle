@@ -14,6 +14,9 @@ importers:
 
   .:
     dependencies:
+      '@bobfrankston/neoping':
+        specifier: ^0.1.30
+        version: 0.1.30
       '@electron-toolkit/preload':
         specifier: ^3.0.2
         version: 3.0.2(electron@44.1.1)
@@ -333,6 +336,14 @@ packages:
   '@babel/types@7.29.0':
     resolution: {integrity: sha512-LwdZHpScM4Qz8Xw2iKSzS+cfglZzJGvofQICy7W7v4caru4EaAmyUuO6BGrbyQ2mYV11W0U8j5mBhd14dd3B0A==}
     engines: {node: '>=6.9.0'}
+
+  '@bobfrankston/dnslookup@1.0.5':
+    resolution: {integrity: sha512-WySF7zbUQOFFoELUaQXEvwysldeu2tI9nfmlx6mLZoZ96SeuQalgTI7F8iTUz1s98MJyYECBsGqV4nG/FtG6Ow==}
+    hasBin: true
+
+  '@bobfrankston/neoping@0.1.30':
+    resolution: {integrity: sha512-zKPfbYIyTbaKxr7ItzCzleeBxfrqsYCnbmittvMztpO3DlhtmSr4ER5rvZhncPDos4RhVg241pyJiLQ1mtKkkA==}
+    hasBin: true
 
   '@buttercup/fetch@0.2.1':
     resolution: {integrity: sha512-sCgECOx8wiqY8NN1xN22BqqKzXYIG2AicNLlakOAI4f0WgyLVUbAigMf8CZhBtJxdudTcB1gD5lciqi44jwJvg==}
@@ -4159,6 +4170,9 @@ packages:
   keyv@4.5.4:
     resolution: {integrity: sha512-oxVHkHR/EJf2CNXnWxRLW6mg7JyCCUcG0DtEGmL2ctUo1PNTin1PUil+r/+4r5MpVgC/fn1kjsx7mjSujKqIpw==}
 
+  koffi@2.16.3:
+    resolution: {integrity: sha512-E9y1AsgYGlaxMhcZzHr8y96QF2U5XzA12GGVAfbWqIubTwPNMXQarfBzePNXHe0xtIEtNd6ifAv3GAKYGUeBAQ==}
+
   layerr@3.0.0:
     resolution: {integrity: sha512-tv754Ki2dXpPVApOrjTyRo4/QegVb9eVFq4mjqp4+NM5NaX7syQvN5BBNfV/ZpAHCEHV24XdUVrBAoka4jt3pA==}
 
@@ -5805,6 +5819,13 @@ snapshots:
     dependencies:
       '@babel/helper-string-parser': 7.27.1
       '@babel/helper-validator-identifier': 7.28.5
+
+  '@bobfrankston/dnslookup@1.0.5': {}
+
+  '@bobfrankston/neoping@0.1.30':
+    dependencies:
+      '@bobfrankston/dnslookup': 1.0.5
+      koffi: 2.16.3
 
   '@buttercup/fetch@0.2.1':
     optionalDependencies:
@@ -10753,6 +10774,8 @@ snapshots:
   keyv@4.5.4:
     dependencies:
       json-buffer: 3.0.1
+
+  koffi@2.16.3: {}
 
   layerr@3.0.0: {}
 

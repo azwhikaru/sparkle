@@ -9,6 +9,7 @@ import { floatingWindow } from '../resolve/floatingWindow'
 import { mihomoIpcPath, serviceIpcPath } from '../utils/dirs'
 import { publishMihomoLog } from '../utils/log'
 import { createSignedServiceAxios, getServiceAuthHeaders } from '../service/api'
+import { happyDelay, pingEndpoint, resolveProxyEndpoint, tcpingEndpoint } from './delayTest'
 
 let axiosIns: AxiosInstance = null!
 let mihomoTrafficWs: WebSocket | null = null
@@ -25,6 +26,32 @@ let connectionsRetry = 10
 let connectionsReconnectTimer: NodeJS.Timeout | null = null
 let axiosMode: 'direct' | 'service' | null = null
 const wsReconnectDelay = 1000
+const customDelayHistories = new Map<string, ControllerProxiesHistory[]>()
+let customDelayMode: DelayTestMode | undefined
+
+function syncCustomDelayMode(mode: DelayTestMode): void {
+  if (customDelayMode === mode) return
+  customDelayHistories.clear()
+  customDelayMode = mode
+}
+
+function recordCustomDelay(proxy: string, delay: number): void {
+  const history = customDelayHistories.get(proxy) ?? []
+  customDelayHistories.set(
+    proxy,
+    [...history, { time: new Date().toISOString(), delay }].slice(-20)
+  )
+}
+
+function applyCustomDelay<T extends ControllerProxiesDetail | ControllerGroupDetail>(proxy: T): T {
+  const history = customDelayHistories.get(proxy.name)
+  if (!history?.length) return proxy
+  return {
+    ...proxy,
+    alive: history[history.length - 1].delay > 0,
+    history
+  }
+}
 
 function isWebSocketActive(ws: WebSocket | null): boolean {
   return ws?.readyState === WebSocket.OPEN || ws?.readyState === WebSocket.CONNECTING
@@ -138,7 +165,16 @@ export const mihomoRules = async (): Promise<ControllerRules> => {
 
 export const mihomoProxies = async (): Promise<ControllerProxies> => {
   const instance = await getAxios()
-  return await instance.get('/proxies')
+  const result = await instance.get<never, ControllerProxies>('/proxies')
+  const { delayTestMode = 'url' } = await getAppConfig()
+  syncCustomDelayMode(delayTestMode)
+  if (delayTestMode === 'url') return result
+
+  return {
+    proxies: Object.fromEntries(
+      Object.entries(result.proxies).map(([name, proxy]) => [name, applyCustomDelay(proxy)])
+    )
+  }
 }
 
 function isControllerGroupDetail(
@@ -231,12 +267,33 @@ export const mihomoGroups = async (): Promise<ControllerMixedGroup[]> => {
 
 export const mihomoProxyProviders = async (): Promise<ControllerProxyProviders> => {
   const instance = await getAxios()
-  return await instance.get('/providers/proxies')
+  const result = await instance.get<never, ControllerProxyProviders>('/providers/proxies')
+  const { delayTestMode = 'url' } = await getAppConfig()
+  syncCustomDelayMode(delayTestMode)
+  if (delayTestMode === 'url') return result
+
+  return {
+    providers: Object.fromEntries(
+      Object.entries(result.providers).map(([name, provider]) => [
+        name,
+        {
+          ...provider,
+          proxies: provider.proxies?.map(applyCustomDelay)
+        }
+      ])
+    )
+  }
 }
 
 const mihomoProxyProvider = async (name: string): Promise<ControllerProxyProviderDetail> => {
   const instance = await getAxios()
-  return await instance.get(`/providers/proxies/${encodeURIComponent(name)}`)
+  const result = await instance.get<never, ControllerProxyProviderDetail>(
+    `/providers/proxies/${encodeURIComponent(name)}`
+  )
+  const { delayTestMode = 'url' } = await getAppConfig()
+  syncCustomDelayMode(delayTestMode)
+  if (delayTestMode === 'url') return result
+  return { ...result, proxies: result.proxies?.map(applyCustomDelay) }
 }
 
 export const mihomoUpdateProxyProviders = async (name: string): Promise<void> => {
@@ -273,7 +330,63 @@ export const mihomoProxyDelay = async (
   provider?: string
 ): Promise<ControllerProxiesDelay> => {
   const appConfig = await getAppConfig()
-  const { delayTestUrl, delayTestTimeout } = appConfig
+  const {
+    delayTestMode = 'url',
+    delayTestUrl,
+    delayTestTimeout,
+    delayTestHappyMin,
+    delayTestHappyMax
+  } = appConfig
+  syncCustomDelayMode(delayTestMode)
+  const timeout = delayTestTimeout || 5000
+
+  if (delayTestMode !== 'url') {
+    let targetName = proxy
+    let providerName = provider
+    try {
+      if (delayTestMode === 'happy') {
+        const delay = happyDelay(delayTestHappyMin, delayTestHappyMax)
+        recordCustomDelay(proxy, delay)
+        return { delay }
+      }
+
+      if (!providerName) {
+        const proxies = await mihomoProxies()
+        const visited = new Set<string>()
+        let target = proxies.proxies[targetName]
+        while (isControllerGroupDetail(target) && !visited.has(targetName)) {
+          visited.add(targetName)
+          const selected = target.now || target.fixed
+          if (!selected) break
+          targetName = selected
+          target = proxies.proxies[targetName]
+        }
+
+        if (target && !isControllerGroupDetail(target) && target['provider-name']) {
+          providerName = target['provider-name']
+        }
+        if (!target || isControllerGroupDetail(target)) {
+          const providers = await mihomoProxyProviders()
+          const matchedProvider = Object.values(providers.providers).find((item) =>
+            item.proxies?.some((itemProxy) => itemProxy.name === targetName)
+          )
+          providerName ??= matchedProvider?.name
+        }
+      }
+
+      const endpoint = await resolveProxyEndpoint(targetName, providerName)
+      const delay =
+        delayTestMode === 'ping'
+          ? await pingEndpoint(endpoint.host, timeout)
+          : await tcpingEndpoint(endpoint.host, endpoint.port, timeout)
+      recordCustomDelay(proxy, delay)
+      return { delay }
+    } catch (error) {
+      recordCustomDelay(proxy, 0)
+      return { delay: 0, message: error instanceof Error ? error.message : String(error) }
+    }
+  }
+
   const instance = await getAxios()
   const path = provider
     ? `/providers/proxies/${encodeURIComponent(provider)}/${encodeURIComponent(proxy)}/healthcheck`
@@ -281,7 +394,7 @@ export const mihomoProxyDelay = async (
   return await instance.get(path, {
     params: {
       url: url || delayTestUrl || 'https://www.gstatic.com/generate_204',
-      timeout: delayTestTimeout || 5000
+      timeout
     }
   })
 }
@@ -291,7 +404,34 @@ export const mihomoGroupDelay = async (
   url?: string
 ): Promise<ControllerGroupDelay> => {
   const appConfig = await getAppConfig()
-  const { delayTestUrl, delayTestTimeout } = appConfig
+  const {
+    delayTestMode = 'url',
+    delayTestUrl,
+    delayTestTimeout,
+    delayTestConcurrency = 50
+  } = appConfig
+  syncCustomDelayMode(delayTestMode)
+  if (delayTestMode !== 'url') {
+    const groups = await mihomoGroups()
+    const targetGroup = groups.find((item) => item.name === group)
+    if (!targetGroup) return {}
+
+    const result: ControllerGroupDelay = {}
+    const targets = targetGroup.all
+    const workerCount = Math.min(Math.max(1, Math.floor(delayTestConcurrency)), targets.length)
+    await Promise.all(
+      Array.from({ length: workerCount }, async (_, workerIndex) => {
+        for (let index = workerIndex; index < targets.length; index += workerCount) {
+          const proxy = targets[index]
+          const providerName = 'provider-name' in proxy ? proxy['provider-name'] : undefined
+          const tested = await mihomoProxyDelay(proxy.name, url, providerName)
+          result[proxy.name] = tested.delay ?? 0
+        }
+      })
+    )
+    return result
+  }
+
   const instance = await getAxios()
   return await instance.get(`/group/${encodeURIComponent(group)}/delay`, {
     params: {

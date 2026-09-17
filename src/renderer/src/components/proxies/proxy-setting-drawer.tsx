@@ -31,13 +31,17 @@ const ProxySettingDrawer: React.FC<Props> = (props) => {
     showProxyDetailTooltip = false,
     autoCloseConnection = true,
     closeMode = 'all',
+    delayTestMode = 'url',
     delayTestUrl,
     delayTestUrlScope = 'group',
     delayTestUseGroupApi = false,
     delayTestConcurrency,
     delayTestTimeout,
+    delayTestHappyMin = 50,
+    delayTestHappyMax = 200,
     rememberProxyGroupOpenState = false
   } = appConfig || {}
+  const usesUrlTest = delayTestMode === 'url'
 
   const [url, setUrl] = useState(delayTestUrl ?? '')
   const [isOpen, setIsOpen] = useState(true)
@@ -264,51 +268,105 @@ const ProxySettingDrawer: React.FC<Props> = (props) => {
                   />
                 </SettingItem>
               )}
-              <SettingItem title="延迟测试地址" {...settingItemProps} divider>
-                <Input
-                  aria-label="延迟测试地址"
-                  data-setting-input="url"
-                  value={url}
-                  placeholder="默认 https://www.gstatic.com/generate_204"
-                  variant="secondary"
-                  onChange={(event) => {
-                    const v = event.target.value
-                    setUrl(v)
-                    setUrlDebounce(v)
-                  }}
-                />
-              </SettingItem>
-              <SettingItem title="测试地址来源" {...settingItemProps} divider>
+              <SettingItem title="测速方式" {...settingItemProps} divider>
                 <SettingTabs
-                  ariaLabel="测试地址来源"
-                  selectedKey={delayTestUrlScope}
+                  ariaLabel="测速方式"
+                  selectedKey={delayTestMode}
                   options={[
-                    { id: 'group', label: '使用组配置' },
-                    { id: 'global', label: '使用统一地址' }
+                    { id: 'url', label: '真连接' },
+                    { id: 'ping', label: 'Ping' },
+                    { id: 'tcping', label: 'TCPing' },
+                    { id: 'happy', label: '快乐模式' }
                   ]}
                   onChange={async (v) => {
-                    await patchAppConfig({
-                      delayTestUrlScope: v as 'group' | 'global'
-                    })
+                    await patchAppConfig({ delayTestMode: v as DelayTestMode })
                   }}
                 />
               </SettingItem>
-              <SettingItem title="使用策略组 API 测速" {...settingItemProps} divider>
-                <Switch
-                  aria-label="使用策略组 API 测速"
-                  isSelected={delayTestUseGroupApi}
-                  onChange={(v) => {
-                    patchAppConfig({ delayTestUseGroupApi: v })
-                  }}
-                >
-                  <Switch.Content>
-                    <Switch.Control>
-                      <Switch.Thumb />
-                    </Switch.Control>
-                  </Switch.Content>
-                </Switch>
-              </SettingItem>
-              {!delayTestUseGroupApi && (
+              {usesUrlTest && (
+                <>
+                  <SettingItem title="延迟测试地址" {...settingItemProps} divider>
+                    <Input
+                      aria-label="延迟测试地址"
+                      data-setting-input="url"
+                      value={url}
+                      placeholder="默认 https://www.gstatic.com/generate_204"
+                      variant="secondary"
+                      onChange={(event) => {
+                        const v = event.target.value
+                        setUrl(v)
+                        setUrlDebounce(v)
+                      }}
+                    />
+                  </SettingItem>
+                  <SettingItem title="测试地址来源" {...settingItemProps} divider>
+                    <SettingTabs
+                      ariaLabel="测试地址来源"
+                      selectedKey={delayTestUrlScope}
+                      options={[
+                        { id: 'group', label: '使用组配置' },
+                        { id: 'global', label: '使用统一地址' }
+                      ]}
+                      onChange={async (v) => {
+                        await patchAppConfig({
+                          delayTestUrlScope: v as 'group' | 'global'
+                        })
+                      }}
+                    />
+                  </SettingItem>
+                  <SettingItem title="使用策略组 API 测速" {...settingItemProps} divider>
+                    <Switch
+                      aria-label="使用策略组 API 测速"
+                      isSelected={delayTestUseGroupApi}
+                      onChange={(v) => {
+                        patchAppConfig({ delayTestUseGroupApi: v })
+                      }}
+                    >
+                      <Switch.Content>
+                        <Switch.Control>
+                          <Switch.Thumb />
+                        </Switch.Control>
+                      </Switch.Content>
+                    </Switch>
+                  </SettingItem>
+                </>
+              )}
+              {delayTestMode === 'happy' && (
+                <SettingItem title="随机延迟范围" {...settingItemProps} divider>
+                  <div className="flex items-center gap-2">
+                    <InputGroup className="w-28" data-setting-input="number" variant="secondary">
+                      <InputGroup.Input
+                        aria-label="最小延迟"
+                        type="number"
+                        min={0}
+                        max={65535}
+                        value={delayTestHappyMin.toString()}
+                        onChange={(event) => {
+                          const value = Number.parseInt(event.target.value)
+                          if (Number.isFinite(value)) patchAppConfig({ delayTestHappyMin: value })
+                        }}
+                      />
+                      <InputGroup.Suffix>ms</InputGroup.Suffix>
+                    </InputGroup>
+                    <span className="text-foreground-500">—</span>
+                    <InputGroup className="w-28" data-setting-input="number" variant="secondary">
+                      <InputGroup.Input
+                        aria-label="最大延迟"
+                        type="number"
+                        min={0}
+                        max={65535}
+                        value={delayTestHappyMax.toString()}
+                        onChange={(event) => {
+                          const value = Number.parseInt(event.target.value)
+                          if (Number.isFinite(value)) patchAppConfig({ delayTestHappyMax: value })
+                        }}
+                      />
+                      <InputGroup.Suffix>ms</InputGroup.Suffix>
+                    </InputGroup>
+                  </div>
+                </SettingItem>
+              )}
+              {(!usesUrlTest || !delayTestUseGroupApi) && (
                 <SettingItem title="延迟测试并发数量" {...settingItemProps} divider>
                   <InputGroup data-setting-input="number" variant="secondary">
                     <InputGroup.Input

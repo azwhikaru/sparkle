@@ -4,6 +4,7 @@ declare const __SPARKLE_SYSTEM_SERVICE_PATH__: string
 type OutboundMode = 'rule' | 'global' | 'direct'
 type LogLevel = 'info' | 'debug' | 'warning' | 'error' | 'silent'
 type SysProxyMode = 'auto' | 'manual'
+type DelayTestMode = 'url' | 'ping' | 'tcping' | 'happy'
 type CardStatus = 'col-span-2' | 'col-span-1' | 'hidden'
 type AppTheme = 'system' | 'light' | 'dark'
 type Priority =

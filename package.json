@@ -26,6 +26,7 @@
     "build:linux": "electron-vite build && node scripts/package-linux.ts"
   },
   "dependencies": {
+    "@bobfrankston/neoping": "^0.1.30",
     "@electron-toolkit/preload": "^3.0.2",
     "@electron-toolkit/utils": "^4.0.0",
     "@uruhalushia/sparkle-native": "^0.1.2",

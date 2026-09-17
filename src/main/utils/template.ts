@@ -88,7 +88,10 @@ export const defaultConfig: AppConfig = {
   serviceRunMode: 'auto',
   delayTestConcurrency: 50,
   delayTestUseGroupApi: false,
+  delayTestMode: 'url',
   delayTestUrlScope: 'group',
+  delayTestHappyMin: 50,
+  delayTestHappyMax: 200,
   showProxyDetailTooltip: false
 }
 

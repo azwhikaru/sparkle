@@ -5,6 +5,7 @@ allowBuilds:
   '@loongdotjs/electron-winstaller': true
   esbuild: true
   meta-json-schema: true
+  koffi: true
 overrides:
   typescript-eslint: ^8.59.2
 patchedDependencies:

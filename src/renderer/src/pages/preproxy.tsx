@@ -1,4 +1,4 @@
-import { Button, Select, SelectItem } from '@heroui/react'
+import { Button, Select, SelectItem, Switch } from '@heroui/react'
 import BasePage from '@renderer/components/base/base-page'
 import { BaseEditor } from '@renderer/components/base/base-editor-lazy'
 import SettingCard from '@renderer/components/base/base-setting-card'
@@ -41,6 +41,7 @@ const PreProxy: React.FC = () => {
   const [source, setSource] = useState(stringifyNode(DEFAULT_NODE))
   const [changed, setChanged] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [changingDirect, setChangingDirect] = useState(false)
   const preProxy = appConfig?.preProxy ?? { enable: false, node: DEFAULT_NODE }
 
   useEffect(() => {
@@ -69,7 +70,7 @@ const PreProxy: React.FC = () => {
   return (
     <BasePage
       title="前置代理设置"
-      contentClassName="no-scrollbar"
+      contentClassName="no-scrollbar overflow-hidden"
       header={
         changed && (
           <Button
@@ -84,43 +85,70 @@ const PreProxy: React.FC = () => {
         )
       }
     >
-      <SettingCard>
-        <SettingItem compatKey="legacy" title="配置模板">
-          <Select
-            aria-label="配置模板"
-            placeholder="选择协议"
-            className="w-50"
-            size="sm"
-            onSelectionChange={(selection) => {
-              const key = selection.currentKey as string | undefined
-              const template = PRE_PROXY_TEMPLATES.find((item) => item.key === key)
-              if (!template) return
-              setSource(stringifyNode(template.node))
-              setChanged(true)
-            }}
-          >
-            {PRE_PROXY_TEMPLATES.map((template) => (
-              <SelectItem key={template.key}>{template.label}</SelectItem>
-            ))}
-          </Select>
-        </SettingItem>
-      </SettingCard>
-      <SettingCard>
-        <h3 className="select-text text-md font-semibold mb-2">节点配置</h3>
-        <p className="select-text text-sm text-default-500 mb-3">
-          作为代理链起点的节点
-        </p>
-        <div className="h-[calc(100vh-270px)] min-h-75">
-          <BaseEditor
-            language="yaml"
-            value={source}
-            onChange={(value) => {
-              setSource(value)
-              setChanged(true)
-            }}
-          />
-        </div>
-      </SettingCard>
+      <div className="flex h-full min-h-0 flex-col gap-2 p-2">
+        <SettingCard className="m-0! shrink-0">
+          <SettingItem compatKey="legacy" title="直连流量也通过前置代理">
+            <Switch
+              size="sm"
+              aria-label="直连流量也通过前置代理"
+              isSelected={preProxy.proxyDirect ?? false}
+              isDisabled={changingDirect || !appConfig}
+              onValueChange={async (proxyDirect) => {
+                setChangingDirect(true)
+                try {
+                  const nextConfig = await patchAppConfig({
+                    preProxy: { ...preProxy, proxyDirect }
+                  })
+                  if (!nextConfig) return
+                  if (preProxy.enable) await restartCore()
+                } finally {
+                  setChangingDirect(false)
+                }
+              }}
+            />
+          </SettingItem>
+          <p className="select-text text-sm leading-5 text-default-500 mt-2 mb-0">
+            开启后，DIRECT 流量也会通过前置代理
+          </p>
+        </SettingCard>
+        <SettingCard className="m-0! shrink-0">
+          <SettingItem compatKey="legacy" title="配置模板">
+            <Select
+              aria-label="配置模板"
+              placeholder="选择协议"
+              className="w-50"
+              size="sm"
+              onSelectionChange={(selection) => {
+                const key = selection.currentKey as string | undefined
+                const template = PRE_PROXY_TEMPLATES.find((item) => item.key === key)
+                if (!template) return
+                setSource(stringifyNode(template.node))
+                setChanged(true)
+              }}
+            >
+              {PRE_PROXY_TEMPLATES.map((template) => (
+                <SelectItem key={template.key}>{template.label}</SelectItem>
+              ))}
+            </Select>
+          </SettingItem>
+        </SettingCard>
+        <SettingCard className="m-0! flex min-h-0 flex-1">
+          <h3 className="select-text text-md font-semibold mb-2">节点配置</h3>
+          <p className="select-text text-sm text-default-500 mb-3">
+            作为代理链起点的节点
+          </p>
+          <div className="min-h-0 flex-1 overflow-hidden rounded-medium">
+            <BaseEditor
+              language="yaml"
+              value={source}
+              onChange={(value) => {
+                setSource(value)
+                setChanged(true)
+              }}
+            />
+          </div>
+        </SettingCard>
+      </div>
     </BasePage>
   )
 }

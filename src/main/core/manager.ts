@@ -241,6 +241,11 @@ async function completeCoreInitialization(logLevel?: LogLevel): Promise<void> {
   setMihomoLogSource('ws')
 }
 
+async function syncControlledMihomoMode(): Promise<void> {
+  const { mode = 'rule' } = await getControledMihomoConfig()
+  await patchMihomoConfig({ mode })
+}
+
 async function waitForMihomoReady(): Promise<void> {
   const maxRetries = 30
   const retryInterval = 100
@@ -458,6 +463,7 @@ export async function startCore(detached = false): Promise<Promise<void>[]> {
       serviceCoreRuntime.endStartup()
     }
     await serviceCoreRuntime.ensureStreamsStarted()
+    await syncControlledMihomoMode()
     initialized = true
     return [completeCoreInitialization(logLevel)]
   }
@@ -548,6 +554,7 @@ export async function startCore(detached = false): Promise<Promise<void>[]> {
     let controllerReady = false
     let providersReady = false
     let completing = false
+    let modeSynchronized = false
 
     return new Promise((resolve, reject) => {
       if (!child.stdout) {
@@ -569,6 +576,11 @@ export async function startCore(detached = false): Promise<Promise<void>[]> {
           providersReady ||= providerTracker.isReady(line)
           controllerReady ||= isControllerReadyLog(line)
 
+          if (controllerReady && !modeSynchronized) {
+            modeSynchronized = true
+            await syncControlledMihomoMode()
+          }
+
           if (isTunPermissionError(line)) {
             patchControledMihomoConfig({ tun: { enable: false } })
             mainWindow?.webContents.send('controledMihomoConfigUpdated')
@@ -579,6 +591,7 @@ export async function startCore(detached = false): Promise<Promise<void>[]> {
 
           if (!controllerReady || !providersReady || completing) return
           completing = true
+          await syncControlledMihomoMode()
           await startMihomoApiStreams()
           await waitForMihomoReady()
           initialized = true
@@ -600,6 +613,7 @@ export async function startCore(detached = false): Promise<Promise<void>[]> {
       hookWaiter.promise
         .then(async () => {
           initialized = true
+          await syncControlledMihomoMode()
           await startMihomoApiStreams()
           resolve([completeCoreInitialization(logLevel)])
         })

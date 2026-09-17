@@ -58,6 +58,7 @@ export const defaultConfig: AppConfig = {
   sysProxy: { enable: false, mode: 'manual', guard: false, guardNotify: false },
   preProxy: {
     enable: false,
+    proxyDirect: false,
     node: {
       type: 'socks5',
       server: '127.0.0.1',

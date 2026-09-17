@@ -29,6 +29,7 @@ interface ISysProxyConfig {
 
 interface IPreProxyConfig {
   enable: boolean
+  proxyDirect?: boolean
   node: Record<string, unknown>
 }
 

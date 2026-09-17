@@ -10,6 +10,7 @@ import { mihomoIpcPath, serviceIpcPath } from '../utils/dirs'
 import { publishMihomoLog } from '../utils/log'
 import { createSignedServiceAxios, getServiceAuthHeaders } from '../service/api'
 import { happyDelay, pingEndpoint, resolveProxyEndpoint, tcpingEndpoint } from './delayTest'
+import { getPreProxyName, isPreProxyName } from './preProxy'
 
 let axiosIns: AxiosInstance = null!
 let mihomoTrafficWs: WebSocket | null = null
@@ -28,6 +29,9 @@ let axiosMode: 'direct' | 'service' | null = null
 const wsReconnectDelay = 1000
 const customDelayHistories = new Map<string, ControllerProxiesHistory[]>()
 let customDelayMode: DelayTestMode | undefined
+let previousGlobalProxy: string | undefined
+let directModeUsesPreProxy = false
+let modePatchQueue = Promise.resolve()
 
 function syncCustomDelayMode(mode: DelayTestMode): void {
   if (customDelayMode === mode) return
@@ -124,9 +128,58 @@ export const mihomoConfig = async (): Promise<ControllerConfigs> => {
   return await instance.get('/configs')
 }
 
-export const patchMihomoConfig = async (patch: Partial<ControllerConfigs>): Promise<void> => {
+async function getGlobalGroup(instance: AxiosInstance): Promise<ControllerGroupDetail | undefined> {
+  const { proxies } = await instance.get<never, ControllerProxies>('/proxies')
+  const global = proxies.GLOBAL
+  return global && 'all' in global ? global : undefined
+}
+
+async function selectGlobalProxy(instance: AxiosInstance, proxy: string): Promise<void> {
+  await instance.put(`/proxies/${encodeURIComponent('GLOBAL')}`, { name: proxy })
+}
+
+async function patchMihomoMode(
+  instance: AxiosInstance,
+  patch: Partial<ControllerConfigs>
+): Promise<void> {
+  const [{ preProxy }, runtime] = await Promise.all([getAppConfig(), getRuntimeConfig()])
+  const preProxyName =
+    preProxy?.enable && preProxy.proxyDirect ? getPreProxyName(runtime) : undefined
+
+  if (patch.mode === 'direct' && preProxyName) {
+    const global = await getGlobalGroup(instance)
+    if (!global?.all.includes(preProxyName)) {
+      return await instance.patch('/configs', patch)
+    }
+
+    if (!directModeUsesPreProxy && !isPreProxyName(global.now)) {
+      previousGlobalProxy = global.now
+    }
+    await selectGlobalProxy(instance, preProxyName)
+    directModeUsesPreProxy = true
+    return await instance.patch('/configs', { ...patch, mode: 'global' })
+  }
+
+  await instance.patch('/configs', patch)
+  if (!directModeUsesPreProxy) return
+
+  const global = await getGlobalGroup(instance)
+  if (previousGlobalProxy && global?.all.includes(previousGlobalProxy)) {
+    await selectGlobalProxy(instance, previousGlobalProxy)
+  }
+  previousGlobalProxy = undefined
+  directModeUsesPreProxy = false
+}
+
+export const patchMihomoConfig = async (
+  patch: Partial<ControllerConfigs>
+): Promise<void> => {
   const instance = await getAxios()
-  return await instance.patch('/configs', patch)
+  if (!patch.mode) return instance.patch('/configs', patch)
+
+  const task = modePatchQueue.then(() => patchMihomoMode(instance, patch))
+  modePatchQueue = task.catch(() => {})
+  return task
 }
 
 export const mihomoCloseConnection = async (id: string): Promise<void> => {

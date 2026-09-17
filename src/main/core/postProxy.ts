@@ -1,3 +1,5 @@
+import { isPreProxyName } from './preProxy'
+
 const POST_PROXY_BASE_NAME = '__SPARKLE_POST_PROXY__'
 const LOCAL_TARGETS = new Set([
   'DIRECT',
@@ -81,7 +83,9 @@ export function applyPostProxy(profile: MihomoConfig, config?: IPostProxyConfig)
     }
 
     const target = parts[targetIndex]
-    if (!target || LOCAL_TARGETS.has(target.toUpperCase())) return rule
+    if (!target || LOCAL_TARGETS.has(target.toUpperCase()) || isPreProxyName(target)) {
+      return rule
+    }
 
     let landingNode = landingNodes.get(target)
     if (!landingNode) {

@@ -201,9 +201,9 @@ jobs:
           fi
 
           QUESTION=$(printf 'Translate into Chinese:\n"""\n%s\n"""' "$TEXT")
-          PAYLOAD=$(jq -n --arg question "$QUESTION" '{
+          PAYLOAD=$(jq -n --arg question "$QUESTION" --arg model "$API_MODEL" '{
             stream: false,
-            model: "$API_MODEL",
+            model: $model,
             messages: [
               {
                 role: "system",

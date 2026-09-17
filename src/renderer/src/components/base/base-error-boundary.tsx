@@ -34,7 +34,7 @@ const ErrorFallback = ({ error }: FallbackProps): JSX.Element => {
       >
         GitHub
       </Button> */}
-      <Button
+      {/* <Button
         size="sm"
         color="primary"
         variant="flat"
@@ -42,7 +42,7 @@ const ErrorFallback = ({ error }: FallbackProps): JSX.Element => {
         onPress={() => open('https://t.me/+y7rcYjEKIiI1NzZl')}
       >
         Telegram
-      </Button>
+      </Button> */}
 
       <Button
         size="sm"

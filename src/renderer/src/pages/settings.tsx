@@ -41,7 +41,7 @@ const Settings: React.FC = () => {
           >
             <IoLogoGithub className="text-lg" />
           </Button>
-          <Button
+          {/* <Button
             isIconOnly
             size="sm"
             variant="light"
@@ -51,7 +51,7 @@ const Settings: React.FC = () => {
             }}
           >
             <FaTelegramPlane className="text-lg" />
-          </Button>
+          </Button> */}
         </>
       }
     >

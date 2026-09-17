@@ -10,11 +10,17 @@ let appConfig: AppConfig
 let writePromise: Promise<void> = Promise.resolve()
 
 function applyBuildConfig(config: AppConfig): AppConfig {
-  const migratedConfig = config.siderOrder?.includes('preproxy')
+  const preProxyMigratedConfig = config.siderOrder?.includes('preproxy')
     ? config
     : {
         ...config,
         siderOrder: insertPreProxyCard(config.siderOrder)
+      }
+  const migratedConfig = preProxyMigratedConfig.siderOrder?.includes('postproxy')
+    ? preProxyMigratedConfig
+    : {
+        ...preProxyMigratedConfig,
+        siderOrder: insertPostProxyCard(preProxyMigratedConfig.siderOrder)
       }
 
   if (!systemCoreOnlyBuild) return migratedConfig
@@ -24,6 +30,17 @@ function applyBuildConfig(config: AppConfig): AppConfig {
     core: 'system',
     systemCorePath: migratedConfig.systemCorePath || systemCoreDefaultPath
   }
+}
+
+function insertPostProxyCard(order: string[] | undefined): string[] {
+  const nextOrder = order?.slice() ?? defaultConfig.siderOrder.slice()
+  if (nextOrder.includes('postproxy')) return nextOrder
+
+  const preProxyIndex = nextOrder.indexOf('preproxy')
+  const tunIndex = nextOrder.indexOf('tun')
+  const insertAfter = preProxyIndex >= 0 ? preProxyIndex : tunIndex
+  nextOrder.splice(insertAfter < 0 ? 0 : insertAfter + 1, 0, 'postproxy')
+  return nextOrder
 }
 
 function insertPreProxyCard(order: string[] | undefined): string[] {

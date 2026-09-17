@@ -13,6 +13,7 @@ const MihomoPage = createPreloadablePage(() => import('@renderer/pages/mihomo'))
 const SysproxyPage = createPreloadablePage(() => import('@renderer/pages/syspeoxy'))
 const TunPage = createPreloadablePage(() => import('@renderer/pages/tun'))
 const PreProxyPage = createPreloadablePage(() => import('@renderer/pages/preproxy'))
+const PostProxyPage = createPreloadablePage(() => import('@renderer/pages/postproxy'))
 const ResourcesPage = createPreloadablePage(() => import('@renderer/pages/resources'))
 const DNSPage = createPreloadablePage(() => import('@renderer/pages/dns'))
 const SnifferPage = createPreloadablePage(() => import('@renderer/pages/sniffer'))
@@ -29,6 +30,7 @@ export const Mihomo = MihomoPage.Page
 export const Sysproxy = SysproxyPage.Page
 export const Tun = TunPage.Page
 export const PreProxy = PreProxyPage.Page
+export const PostProxy = PostProxyPage.Page
 export const Resources = ResourcesPage.Page
 export const DNS = DNSPage.Page
 export const Sniffer = SnifferPage.Page
@@ -45,6 +47,7 @@ const remainingPageLoaders: Array<() => Promise<unknown>> = [
   SysproxyPage.preload,
   TunPage.preload,
   PreProxyPage.preload,
+  PostProxyPage.preload,
   DNSPage.preload,
   SnifferPage.preload,
   ResourcesPage.preload,

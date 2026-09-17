@@ -32,6 +32,11 @@ interface IPreProxyConfig {
   node: Record<string, unknown>
 }
 
+interface IPostProxyConfig {
+  enable: boolean
+  node: Record<string, unknown>
+}
+
 interface IHost {
   domain: string
   value: string | string[]
@@ -83,6 +88,7 @@ interface AppConfig {
   sysproxyCardStatus?: CardStatus
   tunCardStatus?: CardStatus
   preProxyCardStatus?: CardStatus
+  postProxyCardStatus?: CardStatus
   githubToken?: string
   gistSyncEnabled?: boolean
   gistEncrypted?: boolean
@@ -118,6 +124,7 @@ interface AppConfig {
   closeMode: 'all' | 'group'
   sysProxy: ISysProxyConfig
   preProxy?: IPreProxyConfig
+  postProxy?: IPostProxyConfig
   saveLogs?: boolean
   maxLogDays: number
   maxLogFileSizeMB?: number

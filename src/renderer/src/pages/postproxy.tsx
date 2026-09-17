@@ -35,30 +35,30 @@ function parseNode(source: string): Record<string, unknown> {
   return node
 }
 
-const PreProxy: React.FC = () => {
+const PostProxy: React.FC = () => {
   const { appConfig, patchAppConfig } = useAppConfig()
   const initialized = useRef(false)
   const [source, setSource] = useState(stringifyNode(DEFAULT_NODE))
   const [changed, setChanged] = useState(false)
   const [saving, setSaving] = useState(false)
-  const preProxy = appConfig?.preProxy ?? { enable: false, node: DEFAULT_NODE }
+  const postProxy = appConfig?.postProxy ?? { enable: false, node: DEFAULT_NODE }
 
   useEffect(() => {
     if (!appConfig || initialized.current) return
     initialized.current = true
-    setSource(stringifyNode(preProxy.node ?? DEFAULT_NODE))
-  }, [appConfig, preProxy.node])
+    setSource(stringifyNode(postProxy.node ?? DEFAULT_NODE))
+  }, [appConfig, postProxy.node])
 
   const saveNode = async (): Promise<void> => {
     setSaving(true)
     try {
       const node = parseNode(source)
-      const nextConfig = await patchAppConfig({ preProxy: { ...preProxy, node } })
+      const nextConfig = await patchAppConfig({ postProxy: { ...postProxy, node } })
       if (!nextConfig) return
       setSource(stringifyNode(node))
       setChanged(false)
-      if (preProxy.enable) await restartCore()
-      notify('前置代理配置已保存', { variant: 'success' })
+      if (postProxy.enable) await restartCore()
+      notify('后置代理配置已保存', { variant: 'success' })
     } catch (error) {
       notify(error, { variant: 'danger' })
     } finally {
@@ -68,7 +68,7 @@ const PreProxy: React.FC = () => {
 
   return (
     <BasePage
-      title="前置代理设置"
+      title="后置代理设置"
       contentClassName="no-scrollbar"
       header={
         changed && (
@@ -108,7 +108,7 @@ const PreProxy: React.FC = () => {
       <SettingCard>
         <h3 className="select-text text-md font-semibold mb-2">节点配置</h3>
         <p className="select-text text-sm text-default-500 mb-3">
-          作为代理链起点的节点
+          作为代理链终点的节点
         </p>
         <div className="h-[calc(100vh-270px)] min-h-75">
           <BaseEditor
@@ -125,4 +125,4 @@ const PreProxy: React.FC = () => {
   )
 }
 
-export default PreProxy
+export default PostProxy

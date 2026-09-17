@@ -8,6 +8,7 @@ import {
   Mihomo,
   Override,
   PreProxy,
+  PostProxy,
   Profiles,
   Proxies,
   Resources,
@@ -48,6 +49,10 @@ const routes = [
   {
     path: '/preproxy',
     element: startupRoute(<PreProxy />)
+  },
+  {
+    path: '/postproxy',
+    element: startupRoute(<PostProxy />)
   },
   {
     path: '/proxies',

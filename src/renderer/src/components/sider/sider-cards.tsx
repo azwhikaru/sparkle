@@ -12,6 +12,7 @@ import MihomoCoreCard from './mihomo-core-card'
 import OverrideCard from './override-card'
 import ProfileCard from './profile-card'
 import PreProxyCard from './pre-proxy-card'
+import PostProxyCard from './post-proxy-card'
 import ProxyCard from './proxy-card'
 import ResourceCard from './resource-card'
 import RuleCard from './rule-card'
@@ -26,6 +27,7 @@ const defaultSiderOrder = [
   'sysproxy',
   'tun',
   'preproxy',
+  'postproxy',
   'dns',
   'sniff',
   'proxy',
@@ -43,6 +45,7 @@ const siderCardRouteMap = {
   'sysproxy-card': '/sysproxy',
   'tun-card': '/tun',
   'preproxy-card': '/preproxy',
+  'postproxy-card': '/postproxy',
   'profile-card': '/profiles',
   'proxy-card': '/proxies',
   'mihomo-core-card': '/mihomo',
@@ -64,6 +67,7 @@ const componentMap = {
   sysproxy: SysproxySwitcher,
   tun: TunSwitcher,
   preproxy: PreProxyCard,
+  postproxy: PostProxyCard,
   profile: ProfileCard,
   proxy: ProxyCard,
   mihomo: MihomoCoreCard,

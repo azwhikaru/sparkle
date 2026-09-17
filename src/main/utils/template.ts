@@ -41,6 +41,7 @@ export const defaultConfig: AppConfig = {
     'sysproxy',
     'tun',
     'preproxy',
+    'postproxy',
     'dns',
     'sniff',
     'proxy',
@@ -56,6 +57,15 @@ export const defaultConfig: AppConfig = {
   siderWidth: 250,
   sysProxy: { enable: false, mode: 'manual', guard: false, guardNotify: false },
   preProxy: {
+    enable: false,
+    node: {
+      type: 'socks5',
+      server: '127.0.0.1',
+      port: 1080,
+      udp: true
+    }
+  },
+  postProxy: {
     enable: false,
     node: {
       type: 'socks5',

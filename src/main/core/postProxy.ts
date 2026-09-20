@@ -11,6 +11,7 @@ const LOCAL_TARGETS = new Set([
   'GLOBAL'
 ])
 const POST_PROXY_EXCLUDE_PATTERN = '^__SPARKLE_POST_PROXY__(?:_\\d+)?$'
+const POST_PROXY_PATTERN = /^__SPARKLE_POST_PROXY__(?:_\d+)?$/
 
 function isProxyNode(value: unknown): value is MihomoProxy {
   return Boolean(
@@ -40,6 +41,58 @@ function splitRule(rule: string): string[] {
 
   parts.push(current.trim())
   return parts
+}
+
+export function isPostProxyName(name: string): boolean {
+  return POST_PROXY_PATTERN.test(name)
+}
+
+export function restorePersistedPostProxyRules(
+  rules: string[],
+  proxies: MihomoProxy[] = []
+): string[] {
+  const originalTargets = new Map<string, string>()
+  for (const proxy of proxies) {
+    if (
+      typeof proxy?.name === 'string' &&
+      isPostProxyName(proxy.name) &&
+      typeof proxy['dialer-proxy'] === 'string' &&
+      proxy['dialer-proxy'].trim()
+    ) {
+      originalTargets.set(proxy.name, proxy['dialer-proxy'])
+    }
+  }
+
+  const resolveOriginalTarget = (name: string): string | undefined => {
+    const visited = new Set<string>()
+    let target = name
+    while (isPostProxyName(target)) {
+      if (visited.has(target)) return undefined
+      visited.add(target)
+      const nextTarget = originalTargets.get(target)
+      if (!nextTarget) return undefined
+      target = nextTarget
+    }
+    return target
+  }
+
+  return rules.map((rule) => {
+    const parts = splitRule(rule)
+    if (parts.length < 2) return rule
+
+    let targetIndex = parts.length - 1
+    while (targetIndex > 0) {
+      const option = parts[targetIndex].toLowerCase()
+      if (option !== 'no-resolve' && option !== 'src') break
+      targetIndex -= 1
+    }
+
+    const target = parts[targetIndex]
+    if (!target || !isPostProxyName(target)) return rule
+
+    parts[targetIndex] = resolveOriginalTarget(target) || 'DIRECT'
+    return parts.join(',')
+  })
 }
 
 function createNameFactory(proxies: MihomoProxy[]): () => string {

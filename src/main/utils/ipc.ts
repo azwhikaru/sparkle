@@ -41,6 +41,7 @@ import {
   setFileStr,
   saveFileStrWithElevation,
   setProfileStr,
+  setCurrentProfileRules,
   updateProfileItem,
   setProfileConfig,
   getOverrideConfig,
@@ -100,7 +101,8 @@ import {
   getRuntimeConfigStr,
   getRawProfileStr,
   getCurrentProfileStr,
-  getOverrideProfileStr
+  getOverrideProfileStr,
+  getCurrentProfileRules
 } from '../core/factory'
 import { listWebdavBackups, webdavBackup, webdavDelete, webdavRestore } from '../resolve/backup'
 import { getInterfaces } from '../sys/interface'
@@ -281,6 +283,9 @@ export function registerIpcMainHandlers(): void {
     )
   }
   ipcMain.handle('setProfileStr', (_e, id, str) => ipcErrorWrapper(setProfileStr)(id, str))
+  ipcMain.handle('setCurrentProfileRules', (_e, rules) =>
+    ipcErrorWrapper(setCurrentProfileRules)(rules)
+  )
   ipcMain.handle('updateProfileItem', (_e, item) => ipcErrorWrapper(updateProfileItem)(item))
   ipcMain.handle('changeCurrentProfile', (_e, id) => ipcErrorWrapper(changeCurrentProfile)(id))
   ipcMain.handle('addProfileItem', (_e, item) => ipcErrorWrapper(addProfileItem)(item))
@@ -329,6 +334,7 @@ export function registerIpcMainHandlers(): void {
   ipcMain.handle('getRawProfileStr', ipcErrorWrapper(getRawProfileStr))
   ipcMain.handle('getCurrentProfileStr', ipcErrorWrapper(getCurrentProfileStr))
   ipcMain.handle('getOverrideProfileStr', ipcErrorWrapper(getOverrideProfileStr))
+  ipcMain.handle('getCurrentProfileRules', ipcErrorWrapper(getCurrentProfileRules))
   ipcMain.handle('getRuntimeConfig', ipcErrorWrapper(getRuntimeConfig))
   ipcMain.handle('downloadAndInstallUpdate', (_e, version, tag) =>
     ipcErrorWrapper(downloadAndInstallUpdate)(version, tag)

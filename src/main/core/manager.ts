@@ -70,6 +70,7 @@ const directCoreState = {
   retry: 10,
   logLineBuffer: ''
 }
+let restartCoreQueue = Promise.resolve()
 
 const serviceCoreRuntime = createServiceCoreRuntime({
   notifyCoreLog,
@@ -752,13 +753,24 @@ function clearTailscaleAuthNotifications(name?: string): void {
   }
 }
 
-export async function restartCore(): Promise<void> {
+export function restartCore(throwOnError = false): Promise<void> {
+  const task = restartCoreQueue.then(() => restartCoreInternal(throwOnError))
+  restartCoreQueue = task.catch(() => {})
+  return task
+}
+
+async function restartCoreInternal(throwOnError: boolean): Promise<void> {
   try {
     clearTailscaleAuthNotifications()
+    if (throwOnError) {
+      await generateProfile()
+      await checkProfile()
+    }
     await stopCore()
     const promises = await startCore()
     await Promise.all(promises)
   } catch (e) {
+    if (throwOnError) throw e
     void showNotification({ title: '内核启动出错', body: `${e}`, variant: 'danger' })
   }
 }

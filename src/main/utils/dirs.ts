@@ -156,6 +156,10 @@ export function profilePath(id: string): string {
   return path.join(profilesDir(), `${id}.yaml`)
 }
 
+export function profileRulesPath(id: string | undefined): string {
+  return path.join(profilesDir(), `${id || 'default'}.rules.yaml`)
+}
+
 export function overrideDir(): string {
   return path.join(dataDir(), 'override')
 }

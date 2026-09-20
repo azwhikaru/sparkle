@@ -208,6 +208,10 @@ export async function setProfileStr(id: string, str: string): Promise<void> {
   return ipcErrorWrapper(await window.electron.ipcRenderer.invoke('setProfileStr', id, str))
 }
 
+export async function setCurrentProfileRules(rules: string[]): Promise<void> {
+  return ipcErrorWrapper(await window.electron.ipcRenderer.invoke('setCurrentProfileRules', rules))
+}
+
 export async function getOverrideConfig(force = false): Promise<OverrideConfig> {
   return ipcErrorWrapper(await window.electron.ipcRenderer.invoke('getOverrideConfig', force))
 }
@@ -369,6 +373,10 @@ export async function getOverrideProfileStr(): Promise<string> {
 
 export async function getRuntimeConfig(): Promise<MihomoConfig> {
   return ipcErrorWrapper(await window.electron.ipcRenderer.invoke('getRuntimeConfig'))
+}
+
+export async function getCurrentProfileRules(): Promise<string[]> {
+  return ipcErrorWrapper(await window.electron.ipcRenderer.invoke('getCurrentProfileRules'))
 }
 
 export async function checkUpdate(): Promise<AppVersion | undefined> {

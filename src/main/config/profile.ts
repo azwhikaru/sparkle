@@ -21,8 +21,12 @@ import { getUserAgent } from '../utils/userAgent'
 import { execWithElevation } from '../utils/elevation'
 import { decryptAgeText, encryptAgeText, isAgeEncryptedText } from '../utils/age'
 import { isHttpUrl } from '../utils/url'
+import { removeProfileRules, setProfileRules } from './profileRules'
+import { restorePersistedPreProxyRules } from '../core/preProxy'
+import { restorePersistedPostProxyRules } from '../core/postProxy'
 
 let profileConfig: ProfileConfig // profile.yaml
+let profileChangeQueue = Promise.resolve()
 const FILE_PERMISSION_ELEVATION_REQUIRED = 'FILE_PERMISSION_ELEVATION_REQUIRED'
 
 export function getCertFingerprint(cert: tls.PeerCertificate) {
@@ -49,18 +53,24 @@ export async function getProfileItem(id: string | undefined): Promise<ProfileIte
   return items.find((item) => item.id === id)
 }
 
-export async function changeCurrentProfile(id: string): Promise<void> {
+export function changeCurrentProfile(id: string): Promise<void> {
+  const task = profileChangeQueue.then(() => changeCurrentProfileInternal(id))
+  profileChangeQueue = task.catch(() => {})
+  return task
+}
+
+async function changeCurrentProfileInternal(id: string): Promise<void> {
   const config = await getProfileConfig()
   const current = config.current
   config.current = id
   await setProfileConfig(config)
   try {
-    await restartCore()
+    await restartCore(true)
   } catch (e) {
     config.current = current
-    throw e
-  } finally {
     await setProfileConfig(config)
+    await restartCore()
+    throw e
   }
 }
 
@@ -126,6 +136,7 @@ export async function removeProfileItem(id: string): Promise<void> {
   if (existsSync(profilePath(id))) {
     await rm(profilePath(id))
   }
+  await removeProfileRules(id)
   if (shouldRestart) {
     await restartCore()
   }
@@ -337,6 +348,14 @@ export async function setProfileStr(
   item?: ProfileItem
 ): Promise<void> {
   await writeProfileContent(id, content, item, true)
+}
+
+export async function setCurrentProfileRules(rules: string[]): Promise<void> {
+  const { current } = await getProfileConfig()
+  await setProfileRules(
+    current,
+    restorePersistedPostProxyRules(restorePersistedPreProxyRules(rules))
+  )
 }
 
 async function decryptProfileContent(

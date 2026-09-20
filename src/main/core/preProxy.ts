@@ -1,5 +1,7 @@
 const PRE_PROXY_BASE_NAME = '前置代理'
 const PRE_PROXY_PATTERN = /^前置代理(?:_\d+)?$/
+const LEGACY_PRE_PROXY_PATTERN = /^__SPARKLE_PRE_PROXY__(?:_\d+)?$/
+const LEGACY_PRE_PROXY_DIRECT_PATTERN = /^__SPARKLE_PRE_PROXY_DIRECT__(?:_\d+)?$/
 const LOCAL_PROXY_TYPES = new Set(['direct', 'reject', 'reject-drop', 'pass', 'compatible', 'dns'])
 
 function nextProxyName(baseName: string, proxies: MihomoProxy[]): string {
@@ -65,6 +67,33 @@ function rewriteDirectRule(rule: string, targetProxyName: string): string {
   if (parts[targetIndex]?.toUpperCase() !== 'DIRECT') return rule
   parts[targetIndex] = targetProxyName
   return parts.join(',')
+}
+
+export function restorePersistedPreProxyRules(rules: string[]): string[] {
+  return rules.map((rule) => {
+    const parts = splitRule(rule)
+    if (parts.length < 2) return rule
+
+    let targetIndex = parts.length - 1
+    while (targetIndex > 0) {
+      const option = parts[targetIndex].toLowerCase()
+      if (option !== 'no-resolve' && option !== 'src') break
+      targetIndex -= 1
+    }
+
+    const target = parts[targetIndex]
+    if (
+      !target ||
+      (!isPreProxyName(target) &&
+        !LEGACY_PRE_PROXY_PATTERN.test(target) &&
+        !LEGACY_PRE_PROXY_DIRECT_PATTERN.test(target))
+    ) {
+      return rule
+    }
+
+    parts[targetIndex] = 'DIRECT'
+    return parts.join(',')
+  })
 }
 
 function rewriteDirectTargets(profile: MihomoConfig, targetProxyName: string): void {

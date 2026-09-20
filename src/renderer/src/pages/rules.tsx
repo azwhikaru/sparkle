@@ -9,8 +9,9 @@ import { useRules } from '@renderer/hooks/use-rules'
 import { includesIgnoreCase } from '@renderer/utils/includes'
 import {
   getRuntimeConfig,
+  getCurrentProfileRules,
   mihomoProxies,
-  patchControledMihomoConfig,
+  setCurrentProfileRules,
   restartCore
 } from '@renderer/utils/ipc'
 import { notify } from '@renderer/utils/notification'
@@ -55,8 +56,11 @@ const Rules: React.FC = () => {
   const loadSourceRules = useCallback(async (): Promise<void> => {
     setSourceRulesLoaded(false)
     try {
-      const config = await getRuntimeConfig()
-      setSourceRules(config.rules ?? [])
+      const [config, profileRules] = await Promise.all([
+        getRuntimeConfig(),
+        getCurrentProfileRules()
+      ])
+      setSourceRules(profileRules)
       setSubRuleOptions(Object.keys(config['sub-rules'] ?? {}).sort((a, b) => a.localeCompare(b)))
 
       const configuredTargets = [
@@ -72,6 +76,12 @@ const Rules: React.FC = () => {
       }
       const specialTargets = ['DIRECT', 'REJECT', 'REJECT-DROP', 'PASS']
       const allTargets = [...new Set([...specialTargets, ...controllerTargets, ...configuredTargets])]
+        .filter(
+          (target) =>
+            !/^前置代理(?:_\d+)?$/.test(target) &&
+            !/^__SPARKLE_PRE_PROXY(?:_DIRECT)?__(?:_\d+)?$/.test(target) &&
+            !/^__SPARKLE_POST_PROXY__(?:_\d+)?$/.test(target)
+        )
       setTargetOptions([
         ...specialTargets.filter((target) => allTargets.includes(target)),
         ...allTargets
@@ -96,7 +106,7 @@ const Rules: React.FC = () => {
     async (nextRules: string[]): Promise<boolean> => {
       setIsSaving(true)
       try {
-        await patchControledMihomoConfig({ rules: nextRules })
+        await setCurrentProfileRules(nextRules)
         await restartCore()
         setSourceRules(nextRules)
         mutate()

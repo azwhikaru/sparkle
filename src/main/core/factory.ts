@@ -22,14 +22,23 @@ import { existsSync, writeFileSync } from 'fs'
 import path from 'path'
 import { applyPreProxy } from './preProxy'
 import { applyPostProxy } from './postProxy'
+import { getProfileRules } from '../config/profileRules'
 
 let runtimeConfigStr: string,
   rawProfileStr: string,
   currentProfileStr: string,
   overrideProfileStr: string,
-  runtimeConfig: MihomoConfig
+  runtimeConfig: MihomoConfig,
+  currentProfileRules: string[] = []
+let generateProfileQueue = Promise.resolve()
 
-export async function generateProfile(): Promise<void> {
+export function generateProfile(): Promise<void> {
+  const task = generateProfileQueue.then(generateProfileInternal)
+  generateProfileQueue = task.catch(() => {})
+  return task
+}
+
+async function generateProfileInternal(): Promise<void> {
   const [profileConfig, appConfig, controledMihomoConfig] = await Promise.all([
     getProfileConfig(),
     getAppConfig(),
@@ -49,6 +58,9 @@ export async function generateProfile(): Promise<void> {
   rawProfileStr = nextRawProfileStr
   currentProfileStr = stringifyYaml(currentProfileConfig)
   const currentProfile = await overrideProfile(current, currentProfileConfig)
+  const profileRules = await getProfileRules(current)
+  if (profileRules) currentProfile.rules = profileRules
+  currentProfileRules = Array.isArray(currentProfile.rules) ? [...currentProfile.rules] : []
   overrideProfileStr = stringifyYaml(currentProfile)
 
   const configToMerge = JSON.parse(JSON.stringify(controledMihomoConfig))
@@ -433,4 +445,8 @@ export async function getOverrideProfileStr(): Promise<string> {
 
 export async function getRuntimeConfig(): Promise<MihomoConfig> {
   return runtimeConfig
+}
+
+export async function getCurrentProfileRules(): Promise<string[]> {
+  return [...currentProfileRules]
 }

@@ -16,6 +16,7 @@ export {
   getProfileStr,
   getProfileParseStr,
   setProfileStr,
+  setCurrentProfileRules,
   changeCurrentProfile,
   updateProfileItem
 } from './profile'

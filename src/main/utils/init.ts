@@ -3,6 +3,7 @@ import {
   controledMihomoConfigPath,
   dataDir,
   logDir,
+  mihomoWorkConfigPath,
   mihomoTestDir,
   mihomoWorkDir,
   overrideConfigPath,
@@ -23,8 +24,8 @@ import {
   defaultProfile,
   defaultProfileConfig
 } from './template'
-import { stringifyYaml } from './yaml'
-import { mkdir, writeFile, cp, rm, readdir } from 'fs/promises'
+import { parseYaml, stringifyYaml } from './yaml'
+import { mkdir, writeFile, cp, rm, readdir, readFile } from 'fs/promises'
 import { existsSync } from 'fs'
 import path from 'path'
 import {
@@ -36,6 +37,7 @@ import { triggerSysProxy } from '../sys/sysproxy'
 import {
   getAppConfig,
   getControledMihomoConfig,
+  getProfileConfig,
   patchAppConfig,
   patchControledMihomoConfig
 } from '../config'
@@ -44,6 +46,9 @@ import { startSSIDCheck } from '../sys/ssid'
 import { startNetworkDetection } from '../core/manager'
 import { initKeyManager } from '../service/manager'
 import { appendAppLog } from './log'
+import { getProfileRules, setProfileRules } from '../config/profileRules'
+import { restorePersistedPreProxyRules } from '../core/preProxy'
+import { restorePersistedPostProxyRules } from '../core/postProxy'
 
 async function initDirs(): Promise<void> {
   if (!existsSync(dataDir())) {
@@ -176,6 +181,35 @@ async function migration(): Promise<void> {
   }
   if (mihomoConfig['global-client-fingerprint'] !== undefined) {
     mihomoConfigPatch['global-client-fingerprint'] = undefined as never
+  }
+
+  const { current } = await getProfileConfig()
+  const profileRules = await getProfileRules(current)
+  const controlledRules = Array.isArray(mihomoConfig.rules)
+    ? mihomoConfig.rules.filter((rule): rule is string => typeof rule === 'string')
+    : undefined
+  const persistedRules = profileRules ?? controlledRules
+  if (persistedRules) {
+    let runtimeProxies: MihomoProxy[] = []
+    try {
+      const runtimePath = mihomoWorkConfigPath(appConfig.diffWorkDir ? current : 'work')
+      const runtimeConfig = parseYaml<MihomoConfig>(await readFile(runtimePath, 'utf-8'))
+      if (Array.isArray(runtimeConfig?.proxies)) runtimeProxies = runtimeConfig.proxies
+    } catch {
+      // The previous runtime config is optional; unresolved internal targets fall back to DIRECT.
+    }
+
+    const normalizedRules = restorePersistedPostProxyRules(
+      restorePersistedPreProxyRules(persistedRules),
+      runtimeProxies
+    )
+    if (profileRules === undefined || normalizedRules.some((rule, index) => rule !== profileRules[index])) {
+      await setProfileRules(current, normalizedRules)
+    }
+  }
+
+  if (controlledRules) {
+    mihomoConfigPatch.rules = undefined as never
   }
 
   if (Object.keys(mihomoConfigPatch).length > 0) {

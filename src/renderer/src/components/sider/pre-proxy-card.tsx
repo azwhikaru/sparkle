@@ -1,4 +1,4 @@
-import { Button, Card, CardBody, CardFooter, Tooltip } from '@heroui/react'
+import { Button, Card, Tooltip } from '@heroui/react'
 import BorderSwitch from '@renderer/components/base/border-swtich'
 import { useAppConfig } from '@renderer/hooks/use-app-config'
 import { restartCore } from '@renderer/utils/ipc'
@@ -55,16 +55,17 @@ const PreProxyCard: React.FC<Props> = ({ iconOnly = false }) => {
   if (iconOnly) {
     return (
       <div className={`${preProxyCardStatus} flex justify-center`}>
-        <Tooltip content="前置代理" placement="right">
+        <Tooltip delay={0}>
           <Button
             size="sm"
             isIconOnly
-            color={match ? 'primary' : 'default'}
-            variant={match ? 'solid' : 'light'}
+            data-color={match ? 'primary' : 'default'}
+            variant={match ? 'primary' : 'ghost'}
             onPress={() => navigate('/preproxy')}
           >
             <LuPlaneTakeoff className="text-[20px]" />
           </Button>
+          <Tooltip.Content placement="right">前置代理</Tooltip.Content>
         </Tooltip>
       </div>
     )
@@ -72,6 +73,7 @@ const PreProxyCard: React.FC<Props> = ({ iconOnly = false }) => {
 
   return (
     <div
+      ref={setNodeRef}
       style={{
         position: 'relative',
         transform: CSS.Transform.toString(transform),
@@ -81,20 +83,18 @@ const PreProxyCard: React.FC<Props> = ({ iconOnly = false }) => {
       className={`${preProxyCardStatus} preproxy-card`}
     >
       <Card
-        fullWidth
-        ref={setNodeRef}
         {...attributes}
         {...listeners}
-        className={`${match ? 'bg-primary' : 'hover:bg-primary/30'} ${isDragging ? `${disableAnimation ? '' : 'scale-[0.95]'} tap-highlight-transparent` : ''}`}
+        className={`w-full ${match ? 'bg-primary' : 'hover:bg-primary/30'} ${isDragging ? `${disableAnimation ? '' : 'scale-[0.95]'} tap-highlight-transparent` : ''}`}
       >
         {preProxyCardStatus === 'col-span-2' ? (
-          <CardBody className="py-2 px-0 overflow-y-visible">
+          <Card.Content className="py-2 px-0 overflow-y-visible">
             <div className="flex justify-between items-center h-8">
               <Button
                 isIconOnly
                 className="bg-transparent pointer-events-none"
-                variant="flat"
-                color="default"
+                variant="secondary"
+                data-color="default"
               >
                 <LuPlaneTakeoff
                   className={`${match ? 'text-primary-foreground' : 'text-foreground'} text-[24px] font-bold`}
@@ -112,16 +112,16 @@ const PreProxyCard: React.FC<Props> = ({ iconOnly = false }) => {
                 onValueChange={onChange}
               />
             </div>
-          </CardBody>
+          </Card.Content>
         ) : (
           <>
-            <CardBody className="pb-1 pt-0 px-0 overflow-y-visible">
+            <Card.Content className="pb-1 pt-0 px-0 overflow-y-visible">
               <div className="flex justify-between">
                 <Button
                   isIconOnly
                   className="bg-transparent pointer-events-none"
-                  variant="flat"
-                  color="default"
+                  variant="secondary"
+                  data-color="default"
                 >
                   <LuPlaneTakeoff
                     className={`${match ? 'text-primary-foreground' : 'text-foreground'} text-[24px] font-bold`}
@@ -134,14 +134,14 @@ const PreProxyCard: React.FC<Props> = ({ iconOnly = false }) => {
                   onValueChange={onChange}
                 />
               </div>
-            </CardBody>
-            <CardFooter className="pt-1">
+            </Card.Content>
+            <Card.Footer className="pt-1">
               <h3
                 className={`text-md font-bold ${match ? 'text-primary-foreground' : 'text-foreground'}`}
               >
                 前置代理
               </h3>
-            </CardFooter>
+            </Card.Footer>
           </>
         )}
       </Card>

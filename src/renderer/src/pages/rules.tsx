@@ -1,10 +1,11 @@
+import { Separator, InputGroup, Button, Tooltip } from '@heroui/react'
+
 import BasePage from '@renderer/components/base/base-page'
 import ConfirmModal from '@renderer/components/base/base-confirm'
 import RuleEditorModal from '@renderer/components/rules/rule-editor-modal'
 import RuleItem from '@renderer/components/rules/rule-item'
 import { Virtuoso } from 'react-virtuoso'
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Button, Divider, Input, Tooltip } from '@heroui/react'
 import { useRules } from '@renderer/hooks/use-rules'
 import { includesIgnoreCase } from '@renderer/utils/includes'
 import {
@@ -75,13 +76,14 @@ const Rules: React.FC = () => {
         // The runtime config still provides usable targets while the controller is reconnecting.
       }
       const specialTargets = ['DIRECT', 'REJECT', 'REJECT-DROP', 'PASS']
-      const allTargets = [...new Set([...specialTargets, ...controllerTargets, ...configuredTargets])]
-        .filter(
-          (target) =>
-            !/^前置代理(?:_\d+)?$/.test(target) &&
-            !/^__SPARKLE_PRE_PROXY(?:_DIRECT)?__(?:_\d+)?$/.test(target) &&
-            !/^__SPARKLE_POST_PROXY__(?:_\d+)?$/.test(target)
-        )
+      const allTargets = [
+        ...new Set([...specialTargets, ...controllerTargets, ...configuredTargets])
+      ].filter(
+        (target) =>
+          !/^前置代理(?:_\d+)?$/.test(target) &&
+          !/^__SPARKLE_PRE_PROXY(?:_DIRECT)?__(?:_\d+)?$/.test(target) &&
+          !/^__SPARKLE_POST_PROXY__(?:_\d+)?$/.test(target)
+      )
       setTargetOptions([
         ...specialTargets.filter((target) => allTargets.includes(target)),
         ...allTargets
@@ -174,27 +176,48 @@ const Rules: React.FC = () => {
     <BasePage title="分流规则">
       <div className="sticky top-0 z-40">
         <div className="flex gap-2 p-2">
-          <Input
-            size="sm"
-            value={filter}
-            placeholder="筛选过滤"
-            isClearable
-            onValueChange={setFilter}
-          />
-          <Tooltip content="添加规则">
+          <InputGroup fullWidth>
+            <InputGroup.Input
+              aria-label="筛选过滤"
+              value={filter}
+              placeholder="筛选过滤"
+              onChange={(event) => setFilter(event.target.value)}
+            />
+            {filter && (
+              <InputGroup.Suffix>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  isIconOnly
+                  aria-label="清空"
+                  onPress={(event) => {
+                    setFilter('')
+                    event.target
+                      .closest('[data-slot="input-group"]')
+                      ?.querySelector('input')
+                      ?.focus()
+                  }}
+                >
+                  ×
+                </Button>
+              </InputGroup.Suffix>
+            )}
+          </InputGroup>
+          <Tooltip delay={0}>
             <Button
               isIconOnly
               size="sm"
-              color="primary"
+              variant="primary"
               aria-label="添加规则"
               isDisabled={isSaving || !sourceRulesLoaded}
               onPress={() => setEditor({ mode: 'add' })}
             >
               <LuPlus className="text-xl" />
             </Button>
+            <Tooltip.Content>添加规则</Tooltip.Content>
           </Tooltip>
         </div>
-        <Divider />
+        <Separator />
       </div>
       <div className="h-[calc(100vh-100px)] mt-px">
         <Virtuoso
@@ -240,9 +263,7 @@ const Rules: React.FC = () => {
           description={sourceRules[deleteIndex]}
           confirmText="删除"
           onConfirm={async () => {
-            await persistRules(
-              sourceRules.filter((_, sourceIndex) => sourceIndex !== deleteIndex)
-            )
+            await persistRules(sourceRules.filter((_, sourceIndex) => sourceIndex !== deleteIndex))
           }}
         />
       )}

@@ -1,4 +1,4 @@
-import { Button, Select, SelectItem, Switch } from '@heroui/react'
+import { Button, Select, ListBox, Switch } from '@heroui/react'
 import BasePage from '@renderer/components/base/base-page'
 import { BaseEditor } from '@renderer/components/base/base-editor-lazy'
 import SettingCard from '@renderer/components/base/base-setting-card'
@@ -76,8 +76,9 @@ const PreProxy: React.FC = () => {
           <Button
             size="sm"
             className="app-nodrag"
-            color="primary"
-            isLoading={saving}
+            variant="primary"
+            isPending={saving}
+            isDisabled={saving}
             onPress={saveNode}
           >
             保存
@@ -93,7 +94,7 @@ const PreProxy: React.FC = () => {
               aria-label="直连流量也通过前置代理"
               isSelected={preProxy.proxyDirect ?? false}
               isDisabled={changingDirect || !appConfig}
-              onValueChange={async (proxyDirect) => {
+              onChange={async (proxyDirect) => {
                 setChangingDirect(true)
                 try {
                   const nextConfig = await patchAppConfig({
@@ -105,7 +106,13 @@ const PreProxy: React.FC = () => {
                   setChangingDirect(false)
                 }
               }}
-            />
+            >
+              <Switch.Content>
+                <Switch.Control>
+                  <Switch.Thumb />
+                </Switch.Control>
+              </Switch.Content>
+            </Switch>
           </SettingItem>
           <p className="select-text text-sm leading-5 text-default-500 mt-2 mb-0">
             开启后，DIRECT 流量也会通过前置代理
@@ -117,26 +124,36 @@ const PreProxy: React.FC = () => {
               aria-label="配置模板"
               placeholder="选择协议"
               className="w-50"
-              size="sm"
-              onSelectionChange={(selection) => {
-                const key = selection.currentKey as string | undefined
+              variant="secondary"
+              onChange={(selection) => {
+                if (Array.isArray(selection) || selection == null) return
+                const key = String(selection)
                 const template = PRE_PROXY_TEMPLATES.find((item) => item.key === key)
                 if (!template) return
                 setSource(stringifyNode(template.node))
                 setChanged(true)
               }}
             >
-              {PRE_PROXY_TEMPLATES.map((template) => (
-                <SelectItem key={template.key}>{template.label}</SelectItem>
-              ))}
+              <Select.Trigger>
+                <Select.Value />
+                <Select.Indicator />
+              </Select.Trigger>
+              <Select.Popover placement="bottom" shouldFlip containerPadding={56}>
+                <ListBox>
+                  {PRE_PROXY_TEMPLATES.map((template) => (
+                    <ListBox.Item key={template.key} id={template.key} textValue={template.label}>
+                      {template.label}
+                      <ListBox.ItemIndicator />
+                    </ListBox.Item>
+                  ))}
+                </ListBox>
+              </Select.Popover>
             </Select>
           </SettingItem>
         </SettingCard>
         <SettingCard className="m-0! flex min-h-0 flex-1">
           <h3 className="select-text text-md font-semibold mb-2">节点配置</h3>
-          <p className="select-text text-sm text-default-500 mb-3">
-            作为代理链起点的节点
-          </p>
+          <p className="select-text text-sm text-default-500 mb-3">作为代理链起点的节点</p>
           <div className="min-h-0 flex-1 overflow-hidden rounded-medium">
             <BaseEditor
               language="yaml"

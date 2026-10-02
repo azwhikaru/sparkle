@@ -8,7 +8,7 @@ import {
   Surface,
   Switch,
   TextArea
-} from '@heroui-v3/react'
+} from '@heroui/react'
 import React, { useMemo, useState, type ReactNode } from 'react'
 import {
   getMihomoRuleType,
@@ -40,23 +40,14 @@ const DEFAULT_RULE: MihomoRuleDraft = {
 }
 
 const RuleEditorModal: React.FC<Props> = (props) => {
-  const {
-    mode,
-    initialRule,
-    isSaving,
-    targetOptions,
-    subRuleOptions,
-    onClose,
-    onSave
-  } = props
+  const { mode, initialRule, isSaving, targetOptions, subRuleOptions, onClose, onSave } = props
   const [draft, setDraft] = useState<MihomoRuleDraft>(() =>
     initialRule ? parseMihomoRule(initialRule) : DEFAULT_RULE
   )
   const [error, setError] = useState<string | null>(null)
   const typeInfo = getMihomoRuleType(draft.type)
   const supportsIpOptions = supportsMihomoRuleIpOptions(draft.type)
-  const usesMultilinePayload =
-    draft.type === 'AND' || draft.type === 'OR' || draft.type === 'NOT'
+  const usesMultilinePayload = draft.type === 'AND' || draft.type === 'OR' || draft.type === 'NOT'
   const typeOptions = useMemo<MihomoRuleTypeOption[]>(() => {
     if (MIHOMO_RULE_TYPES.some((item) => item.type === draft.type)) return MIHOMO_RULE_TYPES
     return [getMihomoRuleType(draft.type), ...MIHOMO_RULE_TYPES]

@@ -106,16 +106,11 @@ import {
 } from '../core/factory'
 import { listWebdavBackups, webdavBackup, webdavDelete, webdavRestore } from '../resolve/backup'
 import { getInterfaces } from '../sys/interface'
-import {
-  closeTrayIcon,
-  copyEnv,
-  setDockVisible,
-  showTrayIcon,
-  updateTrayIcon
-} from '../resolve/tray'
+import { closeTrayIcon, copyEnv, showTrayIcon, updateTrayIcon } from '../resolve/tray'
 import { registerShortcut } from '../resolve/shortcut'
 import {
   closeMainWindow,
+  setDockVisible,
   mainWindow,
   setNotQuitDialog,
   showMainWindow,

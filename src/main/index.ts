@@ -26,6 +26,7 @@ import { handleDeepLink } from './resolve/deepLink'
 import { initAppQuitLifecycle } from './resolve/appLifecycle'
 import { showNotification } from './utils/notification'
 import { appendAppLog } from './utils/log'
+import { createDockVisibilityController } from './resolve/dockVisibility'
 
 export { setNotQuitDialog } from './resolve/appLifecycle'
 
@@ -80,9 +81,6 @@ async function scheduleLightweightMode(): Promise<void> {
     } else if (autoLightweightMode === 'tray') {
       if (mainWindow && !mainWindow.isVisible()) {
         mainWindow.destroy()
-        if (process.platform === 'darwin' && app.dock) {
-          app.dock.hide()
-        }
       }
     }
   }
@@ -91,6 +89,16 @@ async function scheduleLightweightMode(): Promise<void> {
 }
 
 const syncConfig = getAppConfigSync()
+const dockVisibility = createDockVisibilityController(
+  process.platform === 'darwin' ? app.dock : undefined,
+  (error) => {
+    void appendAppLog(`[App]: update Dock visibility failed, ${error}\n`).catch(() => {})
+  }
+)
+
+export function setDockVisible(visible: boolean): void {
+  dockVisibility.setEnabled(visible)
+}
 
 function exitApp(): void {
   disableSysProxySync()
@@ -284,6 +292,11 @@ export async function createWindow(appConfig?: AppConfig): Promise<void> {
       }
     })
     windowStateManager.attach(mainWindow)
+    setDockVisible(config.useDockIcon ?? true)
+    mainWindow.on('show', () => dockVisibility.setWindowVisible(true))
+    mainWindow.on('hide', () => {
+      dockVisibility.setWindowVisible(mainWindow?.isMinimized() ?? false)
+    })
     const initialContentPromise = waitForInitialContent(mainWindow)
     mainWindow.webContents.on('did-fail-load', () => {
       mainWindow?.webContents.reload()
@@ -299,6 +312,7 @@ export async function createWindow(appConfig?: AppConfig): Promise<void> {
 
     mainWindow.on('closed', () => {
       mainWindow = null
+      dockVisibility.setWindowVisible(false)
     })
 
     mainWindow.on('session-end', async () => {
@@ -355,12 +369,6 @@ export async function triggerMainWindow(): Promise<void> {
 export async function showMainWindow(): Promise<void> {
   if (quitTimeout) {
     clearTimeout(quitTimeout)
-  }
-  if (process.platform === 'darwin' && app.dock) {
-    const { useDockIcon = true } = await getAppConfig()
-    if (!useDockIcon) {
-      app.dock.hide()
-    }
   }
   if (mainWindow) {
     windowShown = true

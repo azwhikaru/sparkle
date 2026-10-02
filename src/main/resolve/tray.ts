@@ -515,7 +515,6 @@ export const buildContextMenu = async (): Promise<Menu> => {
 }
 
 export async function createTray(): Promise<void> {
-  const { useDockIcon = true } = await getAppConfig()
   if (tray) {
     return
   }
@@ -534,9 +533,6 @@ export async function createTray(): Promise<void> {
   tray?.setIgnoreDoubleClickEvents(true)
   await updateTrayIcon()
   if (process.platform === 'darwin') {
-    if (!useDockIcon && app.dock) {
-      app.dock.hide()
-    }
     if (!trayIconUpdateListenerRegistered) {
       ipcMain.on('trayIconUpdate', async (_, png?: string) => {
         const { customTrayIcon = '' } = await getAppConfig()
@@ -670,14 +666,4 @@ export async function closeTrayIcon(): Promise<void> {
     customTrayWindow.destroy()
   }
   customTrayWindow = null
-}
-
-export function setDockVisible(visible: boolean): void {
-  if (process.platform === 'darwin' && app.dock) {
-    if (visible) {
-      app.dock.show()
-    } else {
-      app.dock.hide()
-    }
-  }
 }

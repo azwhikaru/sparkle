@@ -11,6 +11,7 @@ import ShortcutConfig from '@renderer/components/settings/shortcut-config'
 import SiderConfig from '@renderer/components/settings/sider-config'
 import SubStoreConfig from '@renderer/components/settings/substore-config'
 import AppearanceConfig from '@renderer/components/settings/appearance-confis'
+import WebhookConfigPanel from '@renderer/components/settings/webhook-config'
 
 const Settings: React.FC = () => {
   return (
@@ -62,6 +63,7 @@ const Settings: React.FC = () => {
       <SubStoreConfig />
       <SiderConfig />
       <WebdavConfig />
+      <WebhookConfigPanel />
       <AdvancedSettings />
       <ShortcutConfig />
       <Actions />

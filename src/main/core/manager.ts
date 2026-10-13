@@ -58,6 +58,12 @@ import {
   isUpdaterFinishedLog
 } from './startup-chain'
 import { createServiceCoreRuntime } from './service-core-runtime'
+import {
+  emitWebhook,
+  flushWebhooks,
+  notifyCoreStarted,
+  notifyCoreStopped
+} from '../resolve/webhook'
 
 const ctlParam = process.platform === 'win32' ? '-ext-ctl-pipe' : '-ext-ctl-unix'
 
@@ -214,7 +220,18 @@ async function startMihomoApiStreams(): Promise<void> {
   directCoreState.retry = 10
 }
 
-async function completeCoreInitialization(logLevel?: LogLevel): Promise<void> {
+async function completeCoreInitialization(
+  logLevel?: LogLevel,
+  child?: ChildProcess
+): Promise<void> {
+  if (
+    child?.pid &&
+    child === directCoreState.child &&
+    child.exitCode === null &&
+    child.signalCode === null
+  ) {
+    notifyCoreStarted('direct', child.pid)
+  }
   const tasks: Promise<unknown>[] = [
     delay(100).then(() => {
       mainWindow?.webContents.send('groupsUpdated')
@@ -495,6 +512,7 @@ export async function startCore(detached = false): Promise<Promise<void>[]> {
   child.stderr?.on('data', captureStartupOutput)
   child.once('error', (error) => {
     spawnError = error
+    emitWebhook('lifecycle', 'core.failed', { mode: 'direct', reason: 'spawn_failed' }, 'failure')
   })
   const startupFailure = (reason: unknown): Error => {
     const details = startupOutput.trim()
@@ -519,6 +537,15 @@ export async function startCore(detached = false): Promise<Promise<void>[]> {
     })
   }
   child.on('close', async (code, signal) => {
+    if (!initialized && !spawnError) {
+      emitWebhook(
+        'lifecycle',
+        'core.failed',
+        { mode: 'direct', reason: 'startup_failed' },
+        'failure'
+      )
+    }
+    notifyCoreStopped('direct', child.pid, 'exited')
     flushDirectCoreLogNotifications()
     await appendAppLog(`[Manager]: Core closed, code: ${code}, signal: ${signal}\n`)
     if (!configurationRejected && directCoreState.retry) {
@@ -598,7 +625,7 @@ export async function startCore(detached = false): Promise<Promise<void>[]> {
           await startMihomoApiStreams()
           await waitForMihomoReady()
           initialized = true
-          resolve([completeCoreInitialization(logLevel)])
+          resolve([completeCoreInitialization(logLevel, child)])
         }
         handleLine().catch(reject)
       })
@@ -618,7 +645,7 @@ export async function startCore(detached = false): Promise<Promise<void>[]> {
           initialized = true
           await syncControlledMihomoMode()
           await startMihomoApiStreams()
-          resolve([completeCoreInitialization(logLevel)])
+          resolve([completeCoreInitialization(logLevel, child)])
         })
         .catch((error) => reject(startupFailure(error)))
     })
@@ -645,6 +672,7 @@ export async function stopCore(force = false): Promise<void> {
   if (shouldStopServiceCore) {
     try {
       await stopServiceCore()
+      notifyCoreStopped('service')
     } catch (error) {
       await appendAppLog(`[Manager]: stop service core failed, ${error}\n`)
     } finally {
@@ -657,6 +685,9 @@ export async function stopCore(force = false): Promise<void> {
   if (child) {
     directCoreState.child = undefined
     await stopChildProcess(child)
+    if (child.exitCode !== null || child.signalCode !== null) {
+      notifyCoreStopped('direct', child.pid)
+    }
   }
 
   await getAxios(true).catch(() => {})
@@ -772,6 +803,7 @@ async function restartCoreInternal(throwOnError: boolean): Promise<void> {
     const promises = await startCore()
     await Promise.all(promises)
   } catch (e) {
+    emitWebhook('lifecycle', 'core.failed', { reason: 'restart_failed' }, 'failure')
     if (throwOnError) throw e
     void showNotification({ title: '内核启动出错', body: `${e}`, variant: 'danger' })
   }
@@ -779,7 +811,7 @@ async function restartCoreInternal(throwOnError: boolean): Promise<void> {
 
 export async function keepCoreAlive(): Promise<void> {
   try {
-    const { corePermissionMode = 'elevated' } = await getAppConfig()
+    const { corePermissionMode = 'elevated', webhook } = await getAppConfig()
     if (corePermissionMode === 'service') {
       return
     }
@@ -787,8 +819,37 @@ export async function keepCoreAlive(): Promise<void> {
     await startCore(true)
     if (directCoreState.child?.pid) {
       await writeFile(path.join(dataDir(), 'core.pid'), directCoreState.child.pid.toString())
+      if (
+        webhook?.targets?.some(
+          (target) =>
+            target.enabled !== false &&
+            !!target.url &&
+            (!target.categories || target.categories.includes('lifecycle'))
+        )
+      ) {
+        const child = directCoreState.child
+        const deadline = Date.now() + 3000
+        while (Date.now() < deadline) {
+          const remaining = deadline - Date.now()
+          try {
+            await (
+              await getAxios()
+            ).get('/version', { timeout: remaining, signal: AbortSignal.timeout(remaining) })
+            if (
+              child === directCoreState.child &&
+              child.exitCode === null &&
+              child.signalCode === null
+            )
+              notifyCoreStarted('direct', child.pid)
+            break
+          } catch {
+            await delay(100)
+          }
+        }
+      }
     }
   } catch (e) {
+    emitWebhook('lifecycle', 'core.failed', { reason: 'retained_start_failed' }, 'failure')
     void showNotification({ title: '内核启动出错', body: `${e}`, variant: 'danger' })
   }
 }
@@ -796,6 +857,8 @@ export async function keepCoreAlive(): Promise<void> {
 export async function quitWithoutCore(): Promise<void> {
   await keepCoreAlive()
   await startMonitor(true)
+  emitWebhook('application', 'app.quit', { keepCore: true })
+  await flushWebhooks()
   app.exit()
 }
 

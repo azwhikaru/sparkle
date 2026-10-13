@@ -1,4 +1,4 @@
-import { Button, Card, Tooltip } from '@heroui/react'
+import { Button, Card } from '@heroui/react'
 import BorderSwitch from '@renderer/components/base/border-swtich'
 import { useAppConfig } from '@renderer/hooks/use-app-config'
 import { restartCore } from '@renderer/utils/ipc'
@@ -7,13 +7,15 @@ import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import React, { useState } from 'react'
 import { LuPlaneTakeoff } from 'react-icons/lu'
-import { useLocation, useNavigate } from 'react-router-dom'
+import { useLocation } from 'react-router-dom'
+import SiderItem from './sider-item'
 
 interface Props {
   iconOnly?: boolean
+  expanded?: boolean
 }
 
-const PreProxyCard: React.FC<Props> = ({ iconOnly = false }) => {
+const PreProxyCard: React.FC<Props> = ({ iconOnly = false, expanded = false }) => {
   const { appConfig, patchAppConfig } = useAppConfig()
   const {
     preProxy = {
@@ -25,7 +27,6 @@ const PreProxyCard: React.FC<Props> = ({ iconOnly = false }) => {
   } = appConfig || {}
   const [changing, setChanging] = useState(false)
   const location = useLocation()
-  const navigate = useNavigate()
   const match = location.pathname.includes('/preproxy')
   const {
     attributes,
@@ -54,20 +55,20 @@ const PreProxyCard: React.FC<Props> = ({ iconOnly = false }) => {
 
   if (iconOnly) {
     return (
-      <div className={`${preProxyCardStatus} flex justify-center`}>
-        <Tooltip delay={0}>
-          <Button
-            size="sm"
-            isIconOnly
-            data-color={match ? 'primary' : 'default'}
-            variant={match ? 'primary' : 'ghost'}
-            onPress={() => navigate('/preproxy')}
-          >
-            <LuPlaneTakeoff className="text-[20px]" />
-          </Button>
-          <Tooltip.Content placement="right">前置代理</Tooltip.Content>
-        </Tooltip>
-      </div>
+      <SiderItem
+        className={preProxyCardStatus}
+        title="前置代理"
+        route="/preproxy"
+        icon={<LuPlaneTakeoff className="text-[20px]" />}
+        expanded={expanded}
+      >
+        <BorderSwitch
+          isShowBorder={match && preProxy.enable}
+          isSelected={preProxy.enable}
+          isDisabled={changing || !appConfig}
+          onValueChange={onChange}
+        />
+      </SiderItem>
     )
   }
 

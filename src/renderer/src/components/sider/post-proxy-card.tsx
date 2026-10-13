@@ -1,4 +1,4 @@
-import { Button, Card, Tooltip } from '@heroui/react'
+import { Button, Card } from '@heroui/react'
 import BorderSwitch from '@renderer/components/base/border-swtich'
 import { useAppConfig } from '@renderer/hooks/use-app-config'
 import { restartCore } from '@renderer/utils/ipc'
@@ -7,13 +7,15 @@ import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import React, { useState } from 'react'
 import { LuPlaneLanding } from 'react-icons/lu'
-import { useLocation, useNavigate } from 'react-router-dom'
+import { useLocation } from 'react-router-dom'
+import SiderItem from './sider-item'
 
 interface Props {
   iconOnly?: boolean
+  expanded?: boolean
 }
 
-const PostProxyCard: React.FC<Props> = ({ iconOnly = false }) => {
+const PostProxyCard: React.FC<Props> = ({ iconOnly = false, expanded = false }) => {
   const { appConfig, patchAppConfig } = useAppConfig()
   const {
     postProxy = {
@@ -25,7 +27,6 @@ const PostProxyCard: React.FC<Props> = ({ iconOnly = false }) => {
   } = appConfig || {}
   const [changing, setChanging] = useState(false)
   const location = useLocation()
-  const navigate = useNavigate()
   const match = location.pathname.includes('/postproxy')
   const {
     attributes,
@@ -54,20 +55,20 @@ const PostProxyCard: React.FC<Props> = ({ iconOnly = false }) => {
 
   if (iconOnly) {
     return (
-      <div className={`${postProxyCardStatus} flex justify-center`}>
-        <Tooltip delay={0}>
-          <Button
-            size="sm"
-            isIconOnly
-            data-color={match ? 'primary' : 'default'}
-            variant={match ? 'primary' : 'ghost'}
-            onPress={() => navigate('/postproxy')}
-          >
-            <LuPlaneLanding className="text-[20px]" />
-          </Button>
-          <Tooltip.Content placement="right">后置代理</Tooltip.Content>
-        </Tooltip>
-      </div>
+      <SiderItem
+        className={postProxyCardStatus}
+        title="后置代理"
+        route="/postproxy"
+        icon={<LuPlaneLanding className="text-[20px]" />}
+        expanded={expanded}
+      >
+        <BorderSwitch
+          isShowBorder={match && postProxy.enable}
+          isSelected={postProxy.enable}
+          isDisabled={changing || !appConfig}
+          onValueChange={onChange}
+        />
+      </SiderItem>
     )
   }
 

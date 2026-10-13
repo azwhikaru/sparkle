@@ -5,7 +5,7 @@ import { restartCore } from '@renderer/utils/ipc'
 import { notify } from '@renderer/utils/notification'
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import React, { useState } from 'react'
+import React, { useRef, useState } from 'react'
 import { LuPlaneLanding } from 'react-icons/lu'
 import { useLocation } from 'react-router-dom'
 import SiderItem from './sider-item'
@@ -26,6 +26,7 @@ const PostProxyCard: React.FC<Props> = ({ iconOnly = false, expanded = false }) 
     disableAnimation = false
   } = appConfig || {}
   const [changing, setChanging] = useState(false)
+  const changingRef = useRef(false)
   const location = useLocation()
   const match = location.pathname.includes('/postproxy')
   const {
@@ -41,6 +42,8 @@ const PostProxyCard: React.FC<Props> = ({ iconOnly = false, expanded = false }) 
     : null
 
   const onChange = async (enable: boolean): Promise<void> => {
+    if (changingRef.current) return
+    changingRef.current = true
     setChanging(true)
     try {
       const nextConfig = await patchAppConfig({ postProxy: { ...postProxy, enable } })
@@ -49,6 +52,7 @@ const PostProxyCard: React.FC<Props> = ({ iconOnly = false, expanded = false }) 
     } catch (error) {
       notify(error, { variant: 'danger' })
     } finally {
+      changingRef.current = false
       setChanging(false)
     }
   }

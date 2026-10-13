@@ -129,7 +129,8 @@ export function createServiceCoreRuntime(options: ServiceCoreRuntimeOptions) {
 
   async function fallbackToElevatedCore(
     detached: boolean,
-    reason: unknown
+    reason: unknown,
+    startCore = options.startCore
   ): Promise<Promise<void>[]> {
     await appendAppLog(`[Manager]: Service unavailable, fallback to elevated core, ${reason}\n`)
     stopEventHandlers()
@@ -137,7 +138,7 @@ export function createServiceCoreRuntime(options: ServiceCoreRuntimeOptions) {
     mainWindow?.webContents.send('appConfigUpdated')
     floatingWindow?.webContents.send('appConfigUpdated')
     void showNotification({ title: '服务不可用，已切换到非服务模式' })
-    return options.startCore(detached)
+    return startCore(detached)
   }
 
   async function fallbackUnavailableServiceModes(reason: unknown): Promise<void> {

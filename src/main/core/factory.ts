@@ -15,7 +15,7 @@ import {
   overridePath
 } from '../utils/dirs'
 import { parseYaml, stringifyYaml } from '../utils/yaml'
-import { copyFile, mkdir, readdir, writeFile } from 'fs/promises'
+import { copyFile, mkdir, readdir, rename, rm, writeFile } from 'fs/promises'
 import { deepMerge } from '../utils/merge'
 import vm from 'vm'
 import { existsSync, writeFileSync } from 'fs'
@@ -40,9 +40,9 @@ export function generateProfile(): Promise<void> {
 
 async function generateProfileInternal(): Promise<void> {
   const [profileConfig, appConfig, controledMihomoConfig] = await Promise.all([
-    getProfileConfig(),
-    getAppConfig(),
-    getControledMihomoConfig()
+    getProfileConfig().then((config) => structuredClone(config)),
+    getAppConfig().then((config) => structuredClone(config)),
+    getControledMihomoConfig().then((config) => structuredClone(config))
   ])
   const { current } = profileConfig
   const {
@@ -84,15 +84,21 @@ async function generateProfileInternal(): Promise<void> {
 
   await cleanProfile(profile, controlDns, controlSniff)
 
-  runtimeConfig = profile
-  runtimeConfigStr = stringifyYaml(profile)
+  const nextRuntimeConfigStr = stringifyYaml(profile)
   if (diffWorkDir) {
     await prepareProfileWorkDir(current)
   }
-  await writeFile(
-    diffWorkDir ? mihomoWorkConfigPath(current) : mihomoWorkConfigPath('work'),
-    runtimeConfigStr
-  )
+  const configPath = diffWorkDir ? mihomoWorkConfigPath(current) : mihomoWorkConfigPath('work')
+  const temporaryPath = `${configPath}.tmp`
+  try {
+    await writeFile(temporaryPath, nextRuntimeConfigStr)
+    await rename(temporaryPath, configPath)
+  } catch (error) {
+    await rm(temporaryPath, { force: true }).catch(() => {})
+    throw error
+  }
+  runtimeConfig = profile
+  runtimeConfigStr = nextRuntimeConfigStr
 }
 
 async function cleanProfile(

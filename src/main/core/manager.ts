@@ -17,7 +17,6 @@ import {
   startMihomoLogs,
   startMihomoMemory,
   patchMihomoConfig,
-  mihomoGroups,
   getAxios
 } from './mihomoApi'
 import { readFile, rm, writeFile } from 'fs/promises'
@@ -53,6 +52,7 @@ import {
   createCoreSpawnArgs,
   createProviderInitializationTracker,
   isControllerListenError,
+  isControllerConnectionError,
   isControllerReadyLog,
   isTunPermissionError,
   isUpdaterFinishedLog
@@ -76,7 +76,16 @@ const directCoreState = {
   retry: 10,
   logLineBuffer: ''
 }
-let restartCoreQueue = Promise.resolve()
+let coreOperationQueue = Promise.resolve()
+
+function enqueueCoreOperation<T>(operation: () => Promise<T>): Promise<T> {
+  const task = coreOperationQueue.then(operation)
+  coreOperationQueue = task.then(
+    () => {},
+    () => {}
+  )
+  return task
+}
 
 const serviceCoreRuntime = createServiceCoreRuntime({
   notifyCoreLog,
@@ -264,18 +273,28 @@ async function syncControlledMihomoMode(): Promise<void> {
   await patchMihomoConfig({ mode })
 }
 
-async function waitForMihomoReady(): Promise<void> {
-  const maxRetries = 30
+async function waitForMihomoReady(isRunning: () => boolean): Promise<void> {
+  const timeout = 10000
   const retryInterval = 100
+  const startedAt = Date.now()
+  let lastError: unknown
 
-  for (let i = 0; i < maxRetries; i++) {
+  while (Date.now() - startedAt < timeout) {
+    if (!isRunning()) throw new Error('内核在控制接口就绪前已退出')
     try {
-      await mihomoGroups()
-      break
+      const instance = await getAxios()
+      await instance.get('/proxies', { timeout: 1000 })
+      if (!isRunning()) throw new Error('内核在控制接口就绪前已退出')
+      await syncControlledMihomoMode()
+      if (!isRunning()) throw new Error('内核在运行模式同步完成前已退出')
+      return
     } catch (error) {
+      if (!isControllerConnectionError(error)) throw error
+      lastError = error
       await delay(retryInterval)
     }
   }
+  throw new Error(`等待内核控制接口就绪超时：${timeout}ms，${lastError}`)
 }
 
 async function waitForServiceCoreConnection(
@@ -344,7 +363,21 @@ async function getServiceStatusAfterConnectionError(): Promise<
   }
 }
 
-export async function startCore(detached = false): Promise<Promise<void>[]> {
+export function startCore(detached = false): Promise<Promise<void>[]> {
+  return enqueueCoreOperation(async () => {
+    try {
+      const promises = await startCoreInternal(detached)
+      if (!detached) await Promise.all(promises)
+      return promises
+    } catch (error) {
+      await appendAppLog(`[Manager]: Core startup failed, ${error}\n`).catch(() => {})
+      await stopCoreInternal()
+      throw error
+    }
+  })
+}
+
+async function startCoreInternal(detached = false): Promise<Promise<void>[]> {
   const [appConfig, controlledMihomoConfig, profileConfig] = await Promise.all([
     getAppConfig(),
     getControledMihomoConfig(),
@@ -377,7 +410,7 @@ export async function startCore(detached = false): Promise<Promise<void>[]> {
   } catch (error) {
     if (core === 'system' && !systemCoreOnlyBuild) {
       await patchAppConfig({ core: 'mihomo' })
-      return startCore(detached)
+      return startCoreInternal(detached)
     }
     throw error
   }
@@ -395,14 +428,14 @@ export async function startCore(detached = false): Promise<Promise<void>[]> {
       if (isServiceUnavailableError(error)) {
         const probe = await waitForServiceCoreConnection(error)
         if (!probe.reachable) {
-          return serviceCoreRuntime.fallbackToElevatedCore(detached, probe.error)
+          return serviceCoreRuntime.fallbackToElevatedCore(detached, probe.error, startCoreInternal)
         }
         serviceCoreRunning = probe.running
       }
     }
   }
   if (!serviceCoreRunning) {
-    await stopCore()
+    await stopCoreInternal()
   }
   setMihomoLogSource('out')
   if (tun?.enable && autoSetDNSMode !== 'none') {
@@ -469,7 +502,7 @@ export async function startCore(detached = false): Promise<Promise<void>[]> {
       if (isServiceUnavailableError(error)) {
         const probe = await waitForServiceCoreConnection(error)
         if (!probe.reachable) {
-          return serviceCoreRuntime.fallbackToElevatedCore(detached, probe.error)
+          return serviceCoreRuntime.fallbackToElevatedCore(detached, probe.error, startCoreInternal)
         }
         await serviceCoreRuntime.startEventStream()
         if (!probe.running) {
@@ -482,8 +515,8 @@ export async function startCore(detached = false): Promise<Promise<void>[]> {
     } finally {
       serviceCoreRuntime.endStartup()
     }
+    await waitForMihomoReady(() => serviceCoreRuntime.isManaged())
     await serviceCoreRuntime.ensureStreamsStarted()
-    await syncControlledMihomoMode()
     initialized = true
     return [completeCoreInitialization(logLevel)]
   }
@@ -537,6 +570,7 @@ export async function startCore(detached = false): Promise<Promise<void>[]> {
     })
   }
   child.on('close', async (code, signal) => {
+    if (directCoreState.child !== child) return
     if (!initialized && !spawnError) {
       emitWebhook(
         'lifecycle',
@@ -548,18 +582,34 @@ export async function startCore(detached = false): Promise<Promise<void>[]> {
     notifyCoreStopped('direct', child.pid, 'exited')
     flushDirectCoreLogNotifications()
     await appendAppLog(`[Manager]: Core closed, code: ${code}, signal: ${signal}\n`)
-    if (!configurationRejected && directCoreState.retry) {
-      await appendAppLog(`[Manager]: Try Restart Core\n`)
-      directCoreState.retry--
-      await restartCore()
-    } else {
-      await stopCore()
-    }
+    if (!initialized) return
+    await enqueueCoreOperation(async () => {
+      if (directCoreState.child !== child) return
+      if (!configurationRejected && directCoreState.retry) {
+        await appendAppLog(`[Manager]: Try Restart Core\n`)
+        directCoreState.retry--
+        await restartCoreInternal(false)
+      } else {
+        await stopCoreInternal()
+      }
+    })
   })
   child.stdout?.pipe(stdout)
   child.stderr?.pipe(stderr)
   child.stdout?.on('data', handleDirectCoreLogData)
   child.stderr?.on('data', handleDirectCoreLogData)
+
+  let updaterRestartScheduled = false
+  const isCurrentCoreRunning = (): boolean =>
+    directCoreState.child === child && child.exitCode === null && child.signalCode === null
+
+  const initializeDirectCore = async (): Promise<Promise<void>[]> => {
+    await waitForMihomoReady(isCurrentCoreRunning)
+    await startMihomoApiStreams()
+    if (!isCurrentCoreRunning()) throw startupFailure('内核在启动完成前已退出')
+    initialized = true
+    return [completeCoreInitialization(logLevel, child)]
+  }
 
   const handleCoreOutput = async (
     str: string,
@@ -569,14 +619,22 @@ export async function startCore(detached = false): Promise<Promise<void>[]> {
       reject(`控制器监听错误:\n${str}`)
     }
 
-    if (isUpdaterFinishedLog(str)) {
-      try {
-        await stopCore(true)
-        const promises = await startCore()
-        await Promise.all(promises)
-      } catch (e) {
+    if (isUpdaterFinishedLog(str) && !updaterRestartScheduled) {
+      updaterRestartScheduled = true
+      void enqueueCoreOperation(async () => {
+        if (directCoreState.child !== child) return
+        try {
+          await stopCoreInternal(true)
+          const promises = await startCoreInternal()
+          await Promise.all(promises)
+        } catch (error) {
+          await appendAppLog(`[Manager]: Core update restart failed, ${error}\n`).catch(() => {})
+          await stopCoreInternal()
+          throw error
+        }
+      }).catch((e) => {
         void showNotification({ title: '内核启动出错', body: `${e}`, variant: 'danger' })
-      }
+      })
     }
   }
 
@@ -584,7 +642,6 @@ export async function startCore(detached = false): Promise<Promise<void>[]> {
     let controllerReady = false
     let providersReady = false
     let completing = false
-    let modeSynchronized = false
 
     return new Promise((resolve, reject) => {
       if (!child.stdout) {
@@ -600,16 +657,11 @@ export async function startCore(detached = false): Promise<Promise<void>[]> {
       lines.on('line', (line) => {
         const handleLine = async (): Promise<void> => {
           await handleCoreOutput(line, reject)
-          if (initialized) return
+          if (initialized || !isCurrentCoreRunning()) return
 
           providerTracker.track(line)
           providersReady ||= providerTracker.isReady(line)
           controllerReady ||= isControllerReadyLog(line)
-
-          if (controllerReady && !modeSynchronized) {
-            modeSynchronized = true
-            await syncControlledMihomoMode()
-          }
 
           if (isTunPermissionError(line)) {
             patchControledMihomoConfig({ tun: { enable: false } })
@@ -621,11 +673,7 @@ export async function startCore(detached = false): Promise<Promise<void>[]> {
 
           if (!controllerReady || !providersReady || completing) return
           completing = true
-          await syncControlledMihomoMode()
-          await startMihomoApiStreams()
-          await waitForMihomoReady()
-          initialized = true
-          resolve([completeCoreInitialization(logLevel, child)])
+          resolve(await initializeDirectCore())
         }
         handleLine().catch(reject)
       })
@@ -642,19 +690,32 @@ export async function startCore(detached = false): Promise<Promise<void>[]> {
 
       hookWaiter.promise
         .then(async () => {
-          initialized = true
-          await syncControlledMihomoMode()
-          await startMihomoApiStreams()
-          resolve([completeCoreInitialization(logLevel, child)])
+          resolve(await initializeDirectCore())
         })
         .catch((error) => reject(startupFailure(error)))
     })
   }
 
-  return coreStartupMode === 'post-up' ? waitForCoreReadyByHook() : waitForCoreReadyByLog()
+  if (coreStartupMode === 'post-up') return waitForCoreReadyByHook()
+
+  let startupTimer: NodeJS.Timeout | undefined
+  try {
+    return await Promise.race([
+      waitForCoreReadyByLog(),
+      new Promise<Promise<void>[]>((_resolve, reject) => {
+        startupTimer = setTimeout(() => reject(startupFailure('等待内核启动日志超时：30000ms')), 30000)
+      })
+    ])
+  } finally {
+    if (startupTimer) clearTimeout(startupTimer)
+  }
 }
 
-export async function stopCore(force = false): Promise<void> {
+export function stopCore(force = false): Promise<void> {
+  return enqueueCoreOperation(() => stopCoreInternal(force))
+}
+
+async function stopCoreInternal(force = false): Promise<void> {
   serviceCoreRuntime.pauseAutoResume()
 
   try {
@@ -787,23 +848,25 @@ function clearTailscaleAuthNotifications(name?: string): void {
 }
 
 export function restartCore(throwOnError = false): Promise<void> {
-  const task = restartCoreQueue.then(() => restartCoreInternal(throwOnError))
-  restartCoreQueue = task.catch(() => {})
-  return task
+  return enqueueCoreOperation(() => restartCoreInternal(throwOnError))
 }
 
 async function restartCoreInternal(throwOnError: boolean): Promise<void> {
+  let restarting = false
   try {
     clearTailscaleAuthNotifications()
     if (throwOnError) {
       await generateProfile()
       await checkProfile()
     }
-    await stopCore()
-    const promises = await startCore()
+    restarting = true
+    await stopCoreInternal()
+    const promises = await startCoreInternal()
     await Promise.all(promises)
   } catch (e) {
     emitWebhook('lifecycle', 'core.failed', { reason: 'restart_failed' }, 'failure')
+    await appendAppLog(`[Manager]: Core restart failed, ${e}\n`).catch(() => {})
+    if (restarting) await stopCoreInternal()
     if (throwOnError) throw e
     void showNotification({ title: '内核启动出错', body: `${e}`, variant: 'danger' })
   }

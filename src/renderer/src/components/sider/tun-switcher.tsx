@@ -7,9 +7,10 @@ import { useLocation } from 'react-router-dom'
 import { restartCore } from '@renderer/utils/ipc'
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import React from 'react'
+import React, { useRef, useState } from 'react'
 import { useAppConfig } from '@renderer/hooks/use-app-config'
 import SiderItem from './sider-item'
+import { notify } from '@renderer/utils/notification'
 
 interface Props {
   iconOnly?: boolean
@@ -25,6 +26,8 @@ const TunSwitcher: React.FC<Props> = (props) => {
   const { controledMihomoConfig, patchControledMihomoConfig } = useControledMihomoConfig()
   const { tun } = controledMihomoConfig || {}
   const { enable } = tun || {}
+  const [changing, setChanging] = useState(false)
+  const changingRef = useRef(false)
   const {
     attributes,
     listeners,
@@ -37,14 +40,24 @@ const TunSwitcher: React.FC<Props> = (props) => {
   })
   const transform = tf ? { x: tf.x, y: tf.y, scaleX: 1, scaleY: 1 } : null
   const onChange = async (enable: boolean): Promise<void> => {
-    if (enable) {
-      await patchControledMihomoConfig({ tun: { enable }, dns: { enable: true } })
-    } else {
-      await patchControledMihomoConfig({ tun: { enable } })
+    if (changingRef.current) return
+    changingRef.current = true
+    setChanging(true)
+    try {
+      if (enable) {
+        await patchControledMihomoConfig({ tun: { enable }, dns: { enable: true } })
+      } else {
+        await patchControledMihomoConfig({ tun: { enable } })
+      }
+      await restartCore()
+    } catch (error) {
+      notify(error, { variant: 'danger' })
+    } finally {
+      changingRef.current = false
+      setChanging(false)
+      window.electron.ipcRenderer.send('updateFloatingWindow')
+      window.electron.ipcRenderer.send('updateTrayMenu')
     }
-    await restartCore()
-    window.electron.ipcRenderer.send('updateFloatingWindow')
-    window.electron.ipcRenderer.send('updateTrayMenu')
   }
 
   if (iconOnly) {
@@ -56,7 +69,12 @@ const TunSwitcher: React.FC<Props> = (props) => {
         icon={<TbDeviceIpadHorizontalBolt className="text-[20px]" />}
         expanded={expanded}
       >
-        <BorderSwitch isShowBorder={match && enable} isSelected={enable} onValueChange={onChange} />
+        <BorderSwitch
+          isShowBorder={match && enable}
+          isSelected={enable}
+          isDisabled={changing || !controledMihomoConfig}
+          onValueChange={onChange}
+        />
       </SiderItem>
     )
   }
@@ -97,6 +115,7 @@ const TunSwitcher: React.FC<Props> = (props) => {
             <BorderSwitch
               isShowBorder={match && enable}
               isSelected={enable}
+              isDisabled={changing || !controledMihomoConfig}
               onValueChange={onChange}
             />
           </div>

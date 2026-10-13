@@ -8,6 +8,7 @@ import { deepMerge } from '../utils/merge'
 import { notifyConfigOperation } from '../resolve/webhook'
 
 let controledMihomoConfig: Partial<MihomoConfig> // mihomo.yaml
+let patchQueue = Promise.resolve()
 
 export async function getControledMihomoConfig(force = false): Promise<Partial<MihomoConfig>> {
   if (force || !controledMihomoConfig) {
@@ -27,7 +28,13 @@ export async function getControledMihomoConfig(force = false): Promise<Partial<M
   return controledMihomoConfig
 }
 
-export async function patchControledMihomoConfig(patch: Partial<MihomoConfig>): Promise<void> {
+export function patchControledMihomoConfig(patch: Partial<MihomoConfig>): Promise<void> {
+  const task = patchQueue.then(() => patchControledMihomoConfigInternal(patch))
+  patchQueue = task.catch(() => {})
+  return task
+}
+
+async function patchControledMihomoConfigInternal(patch: Partial<MihomoConfig>): Promise<void> {
   await getControledMihomoConfig()
   const { controlDns = true, controlSniff = true } = await getAppConfig()
   if (!controlDns) {

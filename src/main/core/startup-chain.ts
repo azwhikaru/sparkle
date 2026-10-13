@@ -97,6 +97,15 @@ export function isControllerListenError(logLine: string): boolean {
   )
 }
 
+export function isControllerConnectionError(error: unknown): boolean {
+  if (!error || typeof error !== 'object') return false
+  const code = 'code' in error ? error.code : undefined
+  return (
+    typeof code === 'string' &&
+    ['ENOENT', 'ECONNREFUSED', 'ECONNRESET', 'EPIPE', 'ETIMEDOUT', 'ECONNABORTED'].includes(code)
+  )
+}
+
 export function isControllerReadyLog(logLine: string): boolean {
   return (
     (process.platform !== 'win32' && logLine.includes('RESTful API unix listening at')) ||

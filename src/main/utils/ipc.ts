@@ -323,8 +323,8 @@ export function registerIpcMainHandlers(): void {
   handle('updateOverrideItem', (_e, item) => ipcErrorWrapper(updateOverrideItem)(item))
   handle('getOverride', (_e, id, ext) => ipcErrorWrapper(getOverride)(id, ext))
   handle('setOverride', (_e, id, ext, str) => ipcErrorWrapper(setOverride)(id, ext, str))
-  handle('restartCore', ipcErrorWrapper(restartCore))
-  handle('stopCore', ipcErrorWrapper(stopCore))
+  handle('restartCore', () => ipcErrorWrapper(restartCore)(true))
+  handle('stopCore', () => ipcErrorWrapper(stopCore)())
   handle('restartMihomoConnections', ipcErrorWrapper(restartMihomoConnections))
   handle('startMonitor', (_e, detached) => ipcErrorWrapper(startMonitor)(detached))
   handle('triggerSysProxy', (_e, enable, onlyActiveDevice, useRegistry) =>
